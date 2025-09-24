@@ -6,26 +6,36 @@
 <title>N6 Hub v2 — Tabs, Weather, Notes, Tasks</title>
 <style>
   :root{
-    --bg: #0b1020;
-    --panel:#0f172a;
-    --muted:#91a0c8;
-    --text:#e5ebff;
-    --brand1:#7c3aed; --brand2:#2563eb; --brand3:#0ea5e9;
-    --ring:#334155; --card:#111a33;
+    --bg:#050914;
+    --panel:#101a2f;
+    --card:#14213b;
+    --muted:#9fb4d8;
+    --text:#f4f7ff;
+    --brand1:#8b5cf6;
+    --brand2:#38bdf8;
+    --brand3:#22d3ee;
+    --ring:#1f2c46;
     --ok:#16a34a; --warn:#d97706; --bad:#ef4444;
-    --shadow: 0 10px 30px rgba(0,0,0,.35);
-    --grad: linear-gradient(135deg,var(--brand1),var(--brand2));
+    --shadow: 0 24px 60px rgba(5,9,20,.55);
+    --grad: linear-gradient(135deg,var(--brand1),var(--brand3));
   }
   html.light {
-    --bg:#eef2ff; --panel:#ffffff; --text:#0b1020; --muted:#4b5563;
-    --ring:#e5e7eb; --card:#f8fafc; --shadow: 0 10px 24px rgba(0,0,0,.12);
+    --bg:#f7f9ff;
+    --panel:#ffffff;
+    --card:#f1f4ff;
+    --muted:#5b6478;
+    --text:#0b1020;
+    --ring:#d6ddf1;
+    --shadow: 0 20px 45px rgba(15,23,42,.12);
   }
   * { box-sizing: border-box; }
   body {
-    margin:0; background: radial-gradient(1200px 700px at 10% -10%, #1e263f 0, transparent 60%),
-                       radial-gradient(900px 600px at 100% 0, #2a2157 0, transparent 50%),
-                       var(--bg);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    margin:0;
+    background:
+      radial-gradient(1200px 800px at -10% -20%, color-mix(in srgb, var(--brand2) 26%, transparent) 0, transparent 70%),
+      radial-gradient(900px 600px at 110% -10%, color-mix(in srgb, var(--brand1) 22%, transparent) 0, transparent 65%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg) 86%, #01030a 14%), color-mix(in srgb, var(--bg) 92%, #030615 8%));
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     color: var(--text);
   }
   .app {
@@ -33,68 +43,142 @@
     padding: 18px;
   }
   header {
-    display:flex; align-items:center; gap:12px; padding:10px 14px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 22%, transparent),
-                                      color-mix(in srgb, var(--brand2) 22%, transparent));
-    border:1px solid var(--ring); border-radius:16px; box-shadow: var(--shadow);
+    display:flex; align-items:center; gap:12px; padding:12px 16px;
+    background: linear-gradient(120deg,
+      color-mix(in srgb, var(--panel) 70%, var(--brand1) 30%),
+      color-mix(in srgb, var(--panel) 70%, var(--brand3) 30%));
+    border:1px solid color-mix(in srgb, var(--ring) 70%, transparent);
+    border-radius:18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
   }
   .logo{
-    background: var(--grad); color:white; font-weight:800;
-    padding:10px 14px; border-radius:12px; letter-spacing:.5px;
+    background: var(--grad);
+    color:#050914;
+    font-weight:800;
+    padding:10px 16px;
+    border-radius:14px;
+    letter-spacing:.6px;
+    box-shadow: 0 10px 20px rgba(34,211,238,.25);
   }
   .grow{ flex:1 }
   .btn{
-    appearance:none; border:1px solid var(--ring); color:var(--text);
-    background: color-mix(in srgb, var(--panel) 92%, var(--brand3) 8%);
-    border-radius:12px; padding:9px 12px; cursor:pointer; font-size:14px;
+    appearance:none;
+    border:1px solid color-mix(in srgb, var(--ring) 70%, transparent);
+    color:var(--text);
+    background: color-mix(in srgb, var(--panel) 82%, var(--brand2) 18%);
+    border-radius:12px;
+    padding:9px 12px;
+    cursor:pointer;
+    font-size:14px;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
   }
-  .btn:hover{ filter:brightness(1.08) }
-  .btn.brand{ background: var(--grad); border-color: transparent; color:white; }
-  .btn.ghost{ background:transparent }
+  .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(34,211,238,.22);
+    background: color-mix(in srgb, var(--panel) 70%, var(--brand2) 30%);
+  }
+  .btn:focus-visible{
+    outline:2px solid var(--brand2);
+    outline-offset:2px;
+  }
+  .btn.brand{
+    background: var(--grad);
+    border-color: transparent;
+    color:#050914;
+    font-weight:600;
+    box-shadow: 0 10px 22px rgba(139,92,246,.32);
+  }
+  .btn.brand:hover{
+    box-shadow: 0 14px 26px rgba(139,92,246,.4);
+  }
+  .btn.ghost{
+    background: color-mix(in srgb, var(--panel) 90%, transparent 10%);
+  }
   .tabs{
     display:flex; gap:8px; flex-wrap:wrap;
-    background: color-mix(in srgb, var(--panel) 86%, black 14%);
-    border:1px solid var(--ring); border-radius:14px; padding:10px; box-shadow: var(--shadow);
+    background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    border-radius:16px;
+    padding:12px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
   }
   .chip{
-    padding:8px 12px; border-radius:999px; border:1px solid var(--ring);
-    cursor:pointer; font-weight:600; font-size:14px;
-    background: color-mix(in srgb, var(--panel) 85%, var(--brand2) 15%);
-    color: var(--text); opacity:.75;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    cursor:pointer;
+    font-weight:600;
+    font-size:14px;
+    background: color-mix(in srgb, var(--panel) 78%, var(--brand3) 22%);
+    color: color-mix(in srgb, var(--text) 86%, #ffffff 14%);
+    opacity:.85;
+    transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
   }
-  .chip.active{ background: var(--grad); border-color: transparent; opacity:1; color:#fff; }
+  .chip:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(34,211,238,.2);
+  }
+  .chip.active{
+    background: var(--grad);
+    border-color: transparent;
+    opacity:1;
+    color:#050914;
+    box-shadow: 0 10px 24px rgba(139,92,246,.35);
+  }
   .page{
-    background: color-mix(in srgb, var(--panel) 92%, black 8%);
-    border:1px solid var(--ring); border-radius:16px; padding:14px; box-shadow: var(--shadow);
+    background: color-mix(in srgb, var(--panel) 95%, var(--bg) 5%);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:20px;
+    padding:18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
   }
   .grid{
     position:relative;
     display:grid;
-    gap:14px;
+    gap:16px;
     grid-template-columns: repeat(12, 1fr);
     background-image: none;
     background-size: 24px 24px;
   }
   .grid.editing{
     background-image: radial-gradient(circle at 1px 1px,
-      color-mix(in srgb, var(--brand2) 45%, transparent) 0,
-      color-mix(in srgb, var(--brand2) 45%, transparent) 2px,
+      color-mix(in srgb, var(--brand2) 55%, transparent) 0,
+      color-mix(in srgb, var(--brand2) 55%, transparent) 2px,
       transparent 0);
   }
   .card{
     grid-column: span 6; min-height: 380px;
-    background: var(--card); border:1px solid var(--ring); border-radius:14px; overflow:hidden;
-    display:flex; flex-direction:column;
+    background: color-mix(in srgb, var(--card) 92%, #000 8%);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:16px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    box-shadow: 0 18px 36px rgba(5,9,20,.45);
   }
   @media (max-width: 1200px){ .card{ grid-column: span 12; } }
   .card-h{
-    padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand2) 15%, transparent),
-                                      color-mix(in srgb, var(--brand1) 15%, transparent));
-    color:white; font-weight:600;
+    padding:12px 14px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:space-between;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--card) 60%, var(--brand2) 40%),
+      color-mix(in srgb, var(--card) 60%, var(--brand1) 40%));
+    color:#fdfdff;
+    font-weight:600;
   }
   .h-actions{ display:flex; gap:6px; align-items:center; }
-  .card-b{ position:relative; flex:1; background:#0a0f20; overflow:auto; }
+  .card-b{
+    position:relative;
+    flex:1;
+    background: color-mix(in srgb, var(--card) 85%, var(--bg) 15%);
+    overflow:auto;
+  }
   .card-b iframe{ transition: opacity .25s ease; }
   .card-b.loading iframe{ opacity:0; }
   .card-b .skeleton{
@@ -103,9 +187,9 @@
     border-radius:12px;
     background:
       linear-gradient(90deg,
-        rgba(255,255,255,0.08) 25%,
-        rgba(255,255,255,0.18) 37%,
-        rgba(255,255,255,0.08) 63%);
+        color-mix(in srgb, #ffffff 18%, transparent) 25%,
+        color-mix(in srgb, #ffffff 32%, transparent) 37%,
+        color-mix(in srgb, #ffffff 18%, transparent) 63%);
     background-size: 200% 100%;
     animation: skeleton-sheen 1.4s ease infinite;
     opacity:0;
@@ -119,68 +203,122 @@
     100%{ background-position: -200% 0; }
   }
   iframe{
-    width:100%; height:100%; border:0; background:#0a0f20;
+    width:100%;
+    height:100%;
+    border:0;
+    background: color-mix(in srgb, var(--card) 80%, var(--bg) 20%);
   }
   .badge{
-    position:absolute; top:8px; left:8px; background:#0008; color:#fff; font-size:12px;
-    padding:4px 8px; border-radius:999px; backdrop-filter: blur(6px); border:1px solid #ffffff22;
+    position:absolute;
+    top:10px;
+    left:10px;
+    background: color-mix(in srgb, var(--brand1) 35%, #000 65%);
+    color:#f8fbff;
+    font-size:12px;
+    padding:4px 9px;
+    border-radius:999px;
+    backdrop-filter: blur(6px);
+    border:1px solid color-mix(in srgb, var(--brand3) 40%, transparent);
     z-index:3;
   }
   .hint{
-    position:absolute; inset:auto 10px 10px 10px; padding:10px 12px; border-radius:12px;
-    background:#000a; color:#fff; font-size:12px; line-height:1.3; border:1px solid #ffffff22;
+    position:absolute;
+    inset:auto 12px 12px 12px;
+    padding:12px;
+    border-radius:14px;
+    background: color-mix(in srgb, var(--panel) 80%, #000 20%);
+    color:#fdfdff;
+    font-size:12px;
+    line-height:1.4;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    box-shadow: 0 14px 30px rgba(5,9,20,.55);
     display:none;
     z-index:4;
   }
   .card-b.error .hint{ display:block }
   dialog{
-    width:min(1000px, 96vw); border:1px solid var(--ring); border-radius:16px; padding:0;
-    background: color-mix(in srgb, var(--panel) 96%, black 4%); color:var(--text); box-shadow: var(--shadow);
+    width:min(1000px, 96vw);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:18px;
+    padding:0;
+    background: color-mix(in srgb, var(--panel) 94%, var(--bg) 6%);
+    color:var(--text);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
   }
-  dialog::backdrop{ background:rgba(0,0,0,.45); backdrop-filter: blur(2px); }
-  .dlg-h{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
-          background: var(--grad); color:#fff; font-weight:700; }
-  .dlg-b{ padding:14px 16px; }
+  dialog::backdrop{
+    background:rgba(4,6,15,.55);
+    backdrop-filter: blur(4px);
+  }
+  .dlg-h{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px;
+    background: var(--grad);
+    color:#050914;
+    font-weight:700;
+  }
+  .dlg-b{ padding:16px 18px; }
   table{ width:100%; border-collapse: collapse; font-size:14px; }
   th, td{ border-bottom:1px solid var(--ring); padding:8px; text-align:left; }
-  tbody tr:hover{ background: color-mix(in srgb, var(--panel) 70%, var(--brand3) 6%); }
+  tbody tr:hover{ background: color-mix(in srgb, var(--panel) 80%, var(--brand3) 12%); }
   input[type="text"], input[type="number"]{
-    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ring);
-    background: color-mix(in srgb, var(--panel) 90%, white 10%); color:var(--text);
+    width:100%;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    background: color-mix(in srgb, var(--panel) 85%, var(--brand3) 15%);
+    color:var(--text);
   }
   .row-actions{ display:flex; gap:6px }
   .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px }
   .subtle{ color:var(--muted); font-size:12px }
   .pill{
-    padding:6px 10px; border-radius:999px; border:1px solid var(--ring);
-    background: color-mix(in srgb, var(--panel) 94%, var(--brand1) 6%);
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    background: color-mix(in srgb, var(--panel) 82%, var(--brand1) 18%);
+    box-shadow: 0 8px 18px rgba(139,92,246,.28);
   }
   .footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px }
   .tog{
-    display:inline-flex; align-items:center; gap:8px; padding:6px 8px; border-radius:999px;
-    border:1px solid var(--ring); cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    cursor:pointer;
+    background: color-mix(in srgb, var(--panel) 88%, var(--brand2) 12%);
   }
   .resizer{
-    height:6px; cursor:ns-resize;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 40%, var(--panel) 60%),
-                                      color-mix(in srgb, var(--brand2) 40%, var(--panel) 60%));
+    height:6px;
+    cursor:ns-resize;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--brand1) 45%, var(--panel) 55%),
+      color-mix(in srgb, var(--brand2) 45%, var(--panel) 55%));
   }
   .notes-area{
-    width:100%; height:100%; padding:12px; color:var(--text); outline:none;
-    /* Give notes a lighter panel background so text is readable in dark mode.  */
-    /* Increase the text color mix to brighten the area; 20–25% text gives more contrast. */
-    /* Further lighten the notes panel: mix more of the text color for better contrast */
-    /* Use a semi-transparent light overlay to improve readability on dark backgrounds. */
-    /* Increase the opacity for more contrast. */
-    background: rgba(255, 255, 255, 0.1);
-    resize:none; overflow:auto;
+    width:100%;
+    height:100%;
+    padding:14px;
+    color:var(--text);
+    outline:none;
+    background: color-mix(in srgb, var(--card) 75%, var(--brand2) 25%);
+    background-blend-mode: screen;
+    border-radius:10px;
+    border:1px solid color-mix(in srgb, var(--ring) 55%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    resize:none;
+    overflow:auto;
   }
 
   /* Override notes background in light mode so dark text remains legible */
   html.light .notes-area{
-    /* Use a pale panel background to contrast dark text in light mode */
-    background: color-mix(in srgb, var(--panel) 90%, var(--ring) 10%);
+    background: color-mix(in srgb, var(--panel) 92%, var(--brand2) 8%);
     color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
   }
 
   /* ======= Grid Table styling (Excel-like) ======= */
