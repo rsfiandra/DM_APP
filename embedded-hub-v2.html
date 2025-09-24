@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>N6 Hub v2 — Tabs, Weather, Notes, Tasks</title>
+<style>
+  :root{
+    --bg: #0b1020;
+    --panel:#0f172a;
+    --muted:#91a0c8;
+    --text:#e5ebff;
+    --brand1:#7c3aed; --brand2:#2563eb; --brand3:#0ea5e9;
+    --ring:#334155; --card:#111a33;
+    --ok:#16a34a; --warn:#d97706; --bad:#ef4444;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --grad: linear-gradient(135deg,var(--brand1),var(--brand2));
+  }
+  html.light {
+    --bg:#eef2ff; --panel:#ffffff; --text:#0b1020; --muted:#4b5563;
+    --ring:#e5e7eb; --card:#f8fafc; --shadow: 0 10px 24px rgba(0,0,0,.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background: radial-gradient(1200px 700px at 10% -10%, #1e263f 0, transparent 60%),
+                       radial-gradient(900px 600px at 100% 0, #2a2157 0, transparent 50%),
+                       var(--bg);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    color: var(--text);
+  }
+  .app {
+    min-height: 100vh; display:flex; flex-direction:column; gap:16px;
+    padding: 18px;
+  }
+  header {
+    display:flex; align-items:center; gap:12px; padding:10px 14px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 22%, transparent),
+                                      color-mix(in srgb, var(--brand2) 22%, transparent));
+    border:1px solid var(--ring); border-radius:16px; box-shadow: var(--shadow);
+  }
+  .logo{
+    background: var(--grad); color:white; font-weight:800;
+    padding:10px 14px; border-radius:12px; letter-spacing:.5px;
+  }
+  .grow{ flex:1 }
+  .btn{
+    appearance:none; border:1px solid var(--ring); color:var(--text);
+    background: color-mix(in srgb, var(--panel) 92%, var(--brand3) 8%);
+    border-radius:12px; padding:9px 12px; cursor:pointer; font-size:14px;
+  }
+  .btn:hover{ filter:brightness(1.08) }
+  .btn.brand{ background: var(--grad); border-color: transparent; color:white; }
+  .btn.ghost{ background:transparent }
+  .tabs{
+    display:flex; gap:8px; flex-wrap:wrap;
+    background: color-mix(in srgb, var(--panel) 86%, black 14%);
+    border:1px solid var(--ring); border-radius:14px; padding:10px; box-shadow: var(--shadow);
+  }
+  .chip{
+    padding:8px 12px; border-radius:999px; border:1px solid var(--ring);
+    cursor:pointer; font-weight:600; font-size:14px;
+    background: color-mix(in srgb, var(--panel) 85%, var(--brand2) 15%);
+    color: var(--text); opacity:.75;
+  }
+  .chip.active{ background: var(--grad); border-color: transparent; opacity:1; color:#fff; }
+  .page{
+    background: color-mix(in srgb, var(--panel) 92%, black 8%);
+    border:1px solid var(--ring); border-radius:16px; padding:14px; box-shadow: var(--shadow);
+  }
+  .grid{
+    display:grid; gap:14px; grid-template-columns: repeat(12, 1fr);
+  }
+  .card{
+    grid-column: span 6; min-height: 380px;
+    background: var(--card); border:1px solid var(--ring); border-radius:14px; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  @media (max-width: 1200px){ .card{ grid-column: span 12; } }
+  .card-h{
+    padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--brand2) 15%, transparent),
+                                      color-mix(in srgb, var(--brand1) 15%, transparent));
+    color:white; font-weight:600;
+  }
+  .h-actions{ display:flex; gap:6px; align-items:center; }
+  .card-b{ position:relative; flex:1; background:#0a0f20; overflow:auto; }
+  iframe{
+    width:100%; height:100%; border:0; background:#0a0f20;
+  }
+  .badge{
+    position:absolute; top:8px; left:8px; background:#0008; color:#fff; font-size:12px;
+    padding:4px 8px; border-radius:999px; backdrop-filter: blur(6px); border:1px solid #ffffff22;
+  }
+  .hint{
+    position:absolute; inset:auto 10px 10px 10px; padding:10px 12px; border-radius:12px;
+    background:#000a; color:#fff; font-size:12px; line-height:1.3; border:1px solid #ffffff22;
+    display:none;
+  }
+  .card-b.error .hint{ display:block }
+  dialog{
+    width:min(1000px, 96vw); border:1px solid var(--ring); border-radius:16px; padding:0;
+    background: color-mix(in srgb, var(--panel) 96%, black 4%); color:var(--text); box-shadow: var(--shadow);
+  }
+  dialog::backdrop{ background:rgba(0,0,0,.45); backdrop-filter: blur(2px); }
+  .dlg-h{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
+          background: var(--grad); color:#fff; font-weight:700; }
+  .dlg-b{ padding:14px 16px; }
+  table{ width:100%; border-collapse: collapse; font-size:14px; }
+  th, td{ border-bottom:1px solid var(--ring); padding:8px; text-align:left; }
+  tbody tr:hover{ background: color-mix(in srgb, var(--panel) 70%, var(--brand3) 6%); }
+  input[type="text"], input[type="number"]{
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ring);
+    background: color-mix(in srgb, var(--panel) 90%, white 10%); color:var(--text);
+  }
+  .row-actions{ display:flex; gap:6px }
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px }
+  .subtle{ color:var(--muted); font-size:12px }
+  .pill{
+    padding:6px 10px; border-radius:999px; border:1px solid var(--ring);
+    background: color-mix(in srgb, var(--panel) 94%, var(--brand1) 6%);
+  }
+  .footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px }
+  .tog{
+    display:inline-flex; align-items:center; gap:8px; padding:6px 8px; border-radius:999px;
+    border:1px solid var(--ring); cursor:pointer;
+  }
+  .resizer{
+    height:6px; cursor:ns-resize;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 40%, var(--panel) 60%),
+                                      color-mix(in srgb, var(--brand2) 40%, var(--panel) 60%));
+  }
+  .notes-area{
+    width:100%; height:100%; padding:12px; color:var(--text); outline:none;
+    /* Give notes a lighter panel background so text is readable in dark mode.  */
+    /* Increase the text color mix to brighten the area; 20–25% text gives more contrast. */
+    /* Further lighten the notes panel: mix more of the text color for better contrast */
+    /* Use a semi-transparent light overlay to improve readability on dark backgrounds. */
+    /* Increase the opacity for more contrast. */
+    background: rgba(255, 255, 255, 0.1);
+    resize:none; overflow:auto;
+  }
+
+  /* Override notes background in light mode so dark text remains legible */
+  html.light .notes-area{
+    /* Use a pale panel background to contrast dark text in light mode */
+    background: color-mix(in srgb, var(--panel) 90%, var(--ring) 10%);
+    color: var(--text);
+  }
+
+  /* ======= Grid Table styling (Excel-like) ======= */
+  .grid-table{
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .grid-table th,
+  .grid-table td{
+    border: 1px solid var(--ring);
+    padding: 6px 8px;
+    min-width: 80px;
+    white-space: nowrap;
+  }
+  .grid-table th{
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--brand1) 15%, var(--panel) 85%),
+      color-mix(in srgb, var(--brand2) 15%, var(--panel) 85%)
+    );
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+  }
+  .grid-table td:focus{
+    outline: 2px solid var(--brand2);
+    outline-offset: -2px;
+  }
+  /* Alternate row shading */
+  .grid-table tbody tr:nth-child(even) td{
+    background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+  }
+
+  /* More compact headers for embedded cards (not for Weather/Notes/Tasks) */
+  .card-h.embed{
+    /* Reduce padding to make headers more dense */
+    padding:4px 6px;
+    font-size:12px;
+  }
+  .card-h.embed .btn{
+    /* Smaller buttons and fonts for embed headers */
+    padding:2px 6px;
+    font-size:11px;
+    border-radius:6px;
+  }
+
+  /* Horizontal resizer for adjusting card width (grid span). Placed at the right edge of embed cards. */
+  .resizer-x {
+    width: 6px;
+    cursor: ew-resize;
+    /* Use a vertical gradient to complement the vertical resizer */
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--brand1) 40%, var(--panel) 60%),
+      color-mix(in srgb, var(--brand2) 40%, var(--panel) 60%)
+    );
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  /* ===== Styles for Links page ===== */
+  /* Grid container for cards in card view */
+  .links-grid {
+    /* Responsive grid for a small card gallery: cards auto-wrap with a minimum width
+       of 140px so more cards fit per row. */
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    /* Align items to the start so that cards don't stretch to fill entire row */
+    justify-content: flex-start;
+    justify-items: start;
+  }
+  /* Individual link card styled like the bingo game: small, colorful, and neat */
+  .link-card {
+    /* Use a stronger gradient mix to recall the bingo design and scale down size */
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--brand1) 60%, var(--panel) 40%),
+      color-mix(in srgb, var(--brand2) 60%, var(--panel) 40%)
+    );
+    color: var(--text);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100px;
+    /* A softer shadow than full cards, to give a floating tile effect */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    cursor: pointer;
+    position: relative;
+    /* Smooth transitions for hover effects */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+    /* Constrain the width of individual cards so they resemble small bingo tiles */
+    max-width: 200px;
+    width: 100%;
+  }
+  /* Hover effects for link cards: pop up slightly, brighten gradient, and stronger shadow */
+  .link-card:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--brand1) 70%, var(--panel) 30%),
+      color-mix(in srgb, var(--brand2) 70%, var(--panel) 30%)
+    );
+  }
+
+  /* Delete button overlay for link cards, hidden by default */
+  .small-del-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 14px;
+    line-height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .link-card:hover .small-del-btn {
+    opacity: 1;
+  }
+  .link-card-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--text);
+    line-height: 1.2;
+    /* Center the title in the small card */
+    text-align: left;
+  }
+  .link-card-url {
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .link-card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .link-card-actions .btn {
+    font-size: 11px;
+    padding: 2px 5px;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">N6 HUB</div>
+    <div class="grow"></div>
+    <button class="btn" id="btn-setup">Setup</button>
+    <button class="btn ghost" id="btn-export">Export</button>
+    <button class="btn ghost" id="btn-import">Import</button>
+    <label class="tog" title="Toggle light/dark">
+      <input type="checkbox" id="mode" />
+      <span>Light mode</span>
+    </label>
+  </header>
+
+  <div class="tabs" id="tabbar"></div>
+
+  <section class="page">
+    <div class="grid" id="cards"></div>
+  </section>
+
+  <div class="subtle">Tip: some sites block embedding (X-Frame-Options / CSP). If a card shows a hint, click “Open” to view in a new tab. Drag the handle at the bottom of a card to resize its height.</div>
+  <div class="footer">
+    <div class="pill" id="status">Ready</div>
+    <div class="subtle">Data stored in localStorage under <code>n6hub:config:v2</code></div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-h">
+    <div>Setup: Embedded Pages</div>
+    <button class="btn" id="closeDlg">Close</button>
+  </div>
+  <div class="dlg-b">
+    <div class="toolbar">
+      <button class="btn brand" id="addRow">Add Row</button>
+      <button class="btn" id="seed">Seed Examples</button>
+      <div class="subtle">Columns: <b>Page</b> (tab name), <b>Title</b> (card title), <b>Height</b> (px), <b>URL</b> (embed src)</div>
+    </div>
+    <div style="overflow:auto; max-height: 55vh; border:1px solid var(--ring); border-radius:12px;">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="width:160px">Page</th>
+            <th style="width:220px">Title</th>
+            <th style="width:120px">Height (px)</th>
+            <th>URL</th>
+            <th style="width:190px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap">
+      <button class="btn" id="save">Save</button>
+      <span class="subtle">Changes auto-save on field edit too.</span>
+    </div>
+  </div>
+</dialog>
+
+<script>
+const LS_KEY = "n6hub:config:v2";
+const DEFAULTS = [
+  { page:"BI",      title:"ServiceNow",    url:"https://app.powerbi.com/reportEmbed?reportId=e1e7ca50-bdb4-4d95-a482-bfe8e1479cef&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
+  { page:"BI",      title:"InMoment Tags", url:"https://app.powerbi.com/reportEmbed?reportId=9c9e03df-cf99-4d67-863b-4aabcf56adf8&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
+  { page:"BI",      title:"Test 1",        url:"https://app.powerbi.com/reportEmbed?reportId=4b95a956-269f-4c3c-bcd3-535c20921584&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
+  { page:"Browse",  title:"Wikipedia",     url:"https://en.wikipedia.org/wiki/Main_Page", height:380 },
+  { page:"Browse",  title:"DuckDuckGo Lite", url:"https://lite.duckduckgo.com/lite/", height:380 },
+  { page:"Maps",    title:"OpenStreetMap NYC", url:"https://www.openstreetmap.org/export/embed.html?bbox=-74.0267,40.6839,-73.9106,40.8776&layer=mapnik", height:380 },
+  { page:"Docs",    title:"MDN",           url:"https://developer.mozilla.org", height:380 },
+  { page:"Weather", title:"Regional Weather", type:"weather", height:600 },
+  { page:"Notes",   title:"Notes",         type:"notes", height:500 },
+  { page:"Tasks",   title:"Tasks",         type:"tasks", height:500 }
+  ,{ page:"Table",  title:"Table",        type:"table", height:500, data:[] }
+  ,{ page:"Links",  title:"Links",        type:"links", height:500, links: [], viewMode:'list' }
+];
+function loadConfig(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || DEFAULTS.slice(); }
+  catch{ return DEFAULTS.slice(); }
+}
+function saveConfig(rows){ localStorage.setItem(LS_KEY, JSON.stringify(rows)); }
+function uniquePages(rows){ return [...new Set(rows.map(r => (r.page||"").trim()).filter(Boolean))]; }
+// Element factory helper: assigns className, style, and data/aria attributes correctly
+function el(tag, props={}, ...kids){
+  const e = document.createElement(tag);
+  for(const key of Object.keys(props)){
+    const value = props[key];
+    if(key === 'className'){
+      e.className = value;
+    } else if(key === 'style'){
+      e.setAttribute('style', value);
+    } else if(key.includes('-')){
+      // Attributes with hyphens (e.g. data-*, aria-*) should be set via setAttribute
+      e.setAttribute(key, value);
+    } else {
+      e[key] = value;
+    }
+  }
+  for(const child of kids){
+    e.append(child);
+  }
+  return e;
+}
+function setStatus(msg){ document.getElementById("status").textContent = msg; }
+let rows = loadConfig();
+
+// Ensure a table page exists in the config. If not found, add a default blank table.
+if(!rows.some(r => r.page === 'Table')){
+  rows.push({ page:'Table', title:'Table', type:'table', height:500, data: Array.from({length: 10}, () => Array.from({length: 5}, () => '')) });
+  saveConfig(rows);
+}
+
+// Ensure a links page exists in the config. If not found, add a default links page.
+if(!rows.some(r => r.page === 'Links')){
+  rows.push({ page:'Links', title:'Links', type:'links', height:500, links: [], viewMode:'list' });
+  saveConfig(rows);
+}
+let currentPage = uniquePages(rows)[0] || "Home";
+const tabbar = document.getElementById("tabbar");
+const cards = document.getElementById("cards");
+function renderTabs(){ tabbar.innerHTML = ""; const pages = uniquePages(rows); if(pages.length===0) pages.push("Setup"); for(const p of pages){ const b = el("button", {className:"chip" + (p===currentPage?" active":"")}); b.textContent = p; b.onclick = () => { currentPage = p; renderCards(); renderTabs(); }; tabbar.appendChild(b); } }
+function createResizer(card, rec){ const resize = el('div',{className:'resizer'}); resize.onpointerdown = (e) => { e.preventDefault(); const startY = e.clientY; const startH = parseFloat(card.style.minHeight) || card.offsetHeight; function move(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; card.style.minHeight = newH + 'px'; } function up(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; rec.height = Math.round(newH); saveConfig(rows); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); } document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); }; return resize; }
+
+// Create a horizontal resizer to adjust card width (grid span). This allows users to drag the right edge
+// of an embed card and change how many grid columns it spans. The `isSingle` flag indicates
+// whether only one embed card is present on the page, in which case the default span is 12.
+function createWidthResizer(card, rec, isSingle){
+  const resize = el('div',{className:'resizer-x'});
+  resize.onpointerdown = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    // Determine starting span: use existing rec.span or default (full width if single card else half)
+    let startSpan = rec.span || (isSingle ? 12 : 6);
+    // Compute container metrics for column widths and gap
+    const container = cards;
+    const style = window.getComputedStyle(container);
+    const gapVal = parseFloat(style.gap) || 0;
+    const containerWidth = container.clientWidth;
+    // Each column width is container width minus total gaps divided by 12 columns
+    const colWidth = (containerWidth - gapVal * 11) / 12;
+    function move(ev){
+      const dx = ev.clientX - startX;
+      // Determine how many columns to change by approximating with column+gap width
+      let delta = Math.round(dx / (colWidth + gapVal));
+      let newSpan = startSpan + delta;
+      if(newSpan < 1) newSpan = 1;
+      if(newSpan > 12) newSpan = 12;
+      rec.span = newSpan;
+      card.style.gridColumn = 'span ' + newSpan;
+    }
+    function up(ev){
+      // Persist the new span on release
+      saveConfig(rows);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  };
+  return resize;
+}
+function renderWeatherPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 600)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Weather'); const body = el('div',{className:'card-b'}, el('div',{className:'tomorrow', 'data-location-id':'111783,128587,114900,122795,111151,124126','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'current6', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'}))), el('div',{className:'tomorrow','data-location-id':'111783','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'upcoming', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'})))); card.append(h, body); cards.append(card); if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); } }
+function renderNotesPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Notes'); const body = el('div',{className:'card-b'}); const notesArea = el('div',{className:'notes-area', contentEditable:'true'}); notesArea.innerText = localStorage.getItem('n6hub:notes') || ''; notesArea.oninput = () => { localStorage.setItem('n6hub:notes', notesArea.innerText); }; body.append(notesArea); card.append(h, body); cards.append(card); }
+function renderTasksPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Tasks'); const body = el('div',{className:'card-b'}, el('div',{className:'hint', style:'display:block'}, 'Task list is empty. Add tasks via upcoming setup.')); card.append(h, body); cards.append(card); }
+
+// Render a spreadsheet-like table with arrow-key navigation and sortable columns
+function renderTablePage(rec){
+  cards.innerHTML = "";
+  // Ensure data matrix exists; default to 10x5 grid
+  if(!Array.isArray(rec.data) || rec.data.length === 0){
+    rec.data = Array.from({length: 10}, () => Array.from({length: 5}, () => ""));
+  }
+  const numRows = rec.data.length;
+  const numCols = rec.data[0] ? rec.data[0].length : 0;
+  // Create table elements
+  const table = document.createElement('table');
+  table.className = 'grid-table';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  // Sorting functionality
+  function sortTableByColumn(col){
+    // Toggle sort direction if previously sorted on same column
+    const dir = (rec.sortColumn === col && rec.sortDirection === 'asc') ? 'desc' : 'asc';
+    rec.sortColumn = col;
+    rec.sortDirection = dir;
+    rec.data.sort((a,b) => {
+      const valA = (a[col] || '').toLowerCase();
+      const valB = (b[col] || '').toLowerCase();
+      if(valA < valB) return dir === 'asc' ? -1 : 1;
+      if(valA > valB) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    saveConfig(rows);
+    // Re-render table after sorting
+    renderTablePage(rec);
+  }
+  // Build header cells
+  for(let c=0; c<numCols; c++){
+    const th = document.createElement('th');
+    th.textContent = 'Col ' + (c+1);
+    th.onclick = () => sortTableByColumn(c);
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  // Build body
+  const tbody = document.createElement('tbody');
+  for(let r=0; r<numRows; r++){
+    const tr = document.createElement('tr');
+    for(let c=0; c<numCols; c++){
+      const td = document.createElement('td');
+      td.contentEditable = true;
+      td.tabIndex = 0;
+      td.dataset.row = r;
+      td.dataset.col = c;
+      td.innerText = rec.data[r][c] || '';
+      // Save value on input
+      td.oninput = () => {
+        rec.data[r][c] = td.innerText;
+        saveConfig(rows);
+      };
+      // Arrow key navigation
+      td.onkeydown = (e) => {
+        const row = parseInt(td.dataset.row);
+        const col = parseInt(td.dataset.col);
+        let target;
+        switch(e.key){
+          case 'ArrowUp':
+            if(row > 0){
+              e.preventDefault();
+              target = tbody.querySelector('[data-row="'+(row-1)+'"][data-col="'+col+'"]');
+              if(target) target.focus();
+            }
+            break;
+          case 'ArrowDown':
+            if(row < numRows - 1){
+              e.preventDefault();
+              target = tbody.querySelector('[data-row="'+(row+1)+'"][data-col="'+col+'"]');
+              if(target) target.focus();
+            }
+            break;
+          case 'ArrowLeft':
+            if(col > 0){
+              e.preventDefault();
+              target = tbody.querySelector('[data-row="'+row+'"][data-col="'+(col-1)+'"]');
+              if(target) target.focus();
+            }
+            break;
+          case 'ArrowRight':
+            if(col < numCols - 1){
+              e.preventDefault();
+              target = tbody.querySelector('[data-row="'+row+'"][data-col="'+(col+1)+'"]');
+              if(target) target.focus();
+            }
+            break;
+        }
+      };
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  // Build card with table
+  const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'});
+  const h = el('div',{className:'card-h'}, rec.title || 'Table');
+  const body = el('div',{className:'card-b'}, table);
+  card.append(h, body);
+  cards.append(card);
+}
+
+// Render a Links page which can toggle between list (table) view and card view.
+// The `rec.links` array holds objects with `name` and `url` properties. A `viewMode` property
+// on the record determines whether to display as 'list' or 'cards'. Users can add, edit, delete
+// links, and open them in a new tab. State persists in localStorage via saveConfig(rows).
+function renderLinksPage(rec){
+  // Clear cards container
+  cards.innerHTML = "";
+  // Ensure links array exists and viewMode is defined
+  if(!Array.isArray(rec.links)) rec.links = [];
+  if(!rec.viewMode) rec.viewMode = 'list';
+  const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'});
+  // Toggle button between list and card view
+  const toggleBtn = el('button',{className:'btn', onclick:() => {
+    rec.viewMode = rec.viewMode === 'list' ? 'cards' : 'list';
+    saveConfig(rows);
+    renderLinksPage(rec);
+  }}, rec.viewMode === 'list' ? 'Card view' : 'List view');
+  // Add new link button
+  const addBtn = el('button',{className:'btn', onclick:() => {
+    rec.links.push({ name:'', url:'' });
+    saveConfig(rows);
+    renderLinksPage(rec);
+  }}, 'Add');
+  const hActions = el('div',{className:'h-actions'}, toggleBtn, addBtn);
+  const h = el('div',{className:'card-h'}, rec.title || 'Links', hActions);
+  const body = el('div',{className:'card-b'});
+  if(rec.viewMode === 'list'){
+    // Build table for list view
+    const table = document.createElement('table');
+    table.className = 'grid-table';
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    const thName = document.createElement('th'); thName.textContent = 'Name';
+    const thUrl = document.createElement('th'); thUrl.textContent = 'URL';
+    const thActions = document.createElement('th'); thActions.textContent = 'Actions';
+    headerRow.append(thName, thUrl, thActions);
+    thead.append(headerRow);
+    table.append(thead);
+    const tbodyEl = document.createElement('tbody');
+    rec.links.forEach((lnk, i) => {
+      const tr = document.createElement('tr');
+      const tdName = document.createElement('td');
+      const inpName = document.createElement('input');
+      inpName.type = 'text';
+      inpName.value = lnk.name || '';
+      inpName.oninput = e => {
+        rec.links[i].name = e.target.value;
+        saveConfig(rows);
+      };
+      tdName.append(inpName);
+      const tdUrl = document.createElement('td');
+      const inpUrl = document.createElement('input');
+      inpUrl.type = 'text';
+      inpUrl.value = lnk.url || '';
+      inpUrl.oninput = e => {
+        rec.links[i].url = e.target.value;
+        saveConfig(rows);
+      };
+      tdUrl.append(inpUrl);
+      const tdAct = document.createElement('td');
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'row-actions';
+      const openBtn = el('button',{className:'btn', onclick:() => window.open(lnk.url, '_blank')}, 'Open');
+      const delBtn = el('button',{className:'btn', onclick:() => {
+        rec.links.splice(i, 1);
+        saveConfig(rows);
+        renderLinksPage(rec);
+      }}, 'Delete');
+      actionsDiv.append(openBtn, delBtn);
+      tdAct.append(actionsDiv);
+      tr.append(tdName, tdUrl, tdAct);
+      tbodyEl.append(tr);
+    });
+    table.append(tbodyEl);
+    body.append(table);
+  } else {
+    // Card view: show each link as a small card. The card opens the link when clicked
+    // and displays only the title. A small delete button appears on hover to remove the link.
+    const grid = el('div',{className:'links-grid'});
+    rec.links.forEach((lnk, i) => {
+      // Delete button overlay; stop propagation so clicking it doesn't open the link
+      const delBtn = el('button',{className:'small-del-btn', title:'Delete', onclick:(e) => {
+        e.stopPropagation();
+        rec.links.splice(i, 1);
+        saveConfig(rows);
+        renderLinksPage(rec);
+      }}, '×');
+      const lCard = el('div',{className:'link-card', onclick:() => {
+        // Only open if a URL is provided
+        if(lnk.url) window.open(lnk.url, '_blank');
+      }},
+        delBtn,
+        el('div',{className:'link-card-title'}, lnk.name || '(Untitled)')
+      );
+      grid.append(lCard);
+    });
+    body.append(grid);
+  }
+  card.append(h, body);
+  cards.append(card);
+  setStatus('Showing links.');
+}
+function cardHint(block, url){ block.classList.add("error"); block.querySelector(".hint").innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`; }
+function renderCards(){
+  // Handle special pages first
+  if(currentPage === 'Weather'){
+    const rec = rows.find(r => r.page === 'Weather');
+    if(rec){
+      renderWeatherPage(rec);
+      // Ensure Tomorrow.io widgets re-render after the card is inserted
+      setTimeout(() => {
+        if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); }
+      }, 0);
+      setStatus('Showing weather.');
+      return;
+    }
+  }
+  if(currentPage === 'Notes'){
+    const rec = rows.find(r => r.page === 'Notes');
+    if(rec){
+      renderNotesPage(rec);
+      setStatus('Showing notes.');
+      return;
+    }
+  }
+  if(currentPage === 'Tasks'){
+    const rec = rows.find(r => r.page === 'Tasks');
+    if(rec){
+      renderTasksPage(rec);
+      setStatus('Showing tasks.');
+      return;
+    }
+  }
+  // Render table page (Excel-like)
+  if(currentPage === 'Table'){
+    const rec = rows.find(r => r.page === 'Table');
+    if(rec){
+      renderTablePage(rec);
+      setStatus('Showing table.');
+      return;
+    }
+  }
+
+  // Render links page
+  if(currentPage === 'Links'){
+    const rec = rows.find(r => r.page === 'Links');
+    if(rec){
+      renderLinksPage(rec);
+      return;
+    }
+  }
+  // Clear existing cards
+  cards.innerHTML = "";
+  // Build list of embeds for current page
+  const list = rows.filter(r => (r.page||"").trim() === currentPage && !r.type);
+  // Determine if there's only one embed on this page. Used for default width.
+  const isSingle = list.length === 1;
+  if(list.length === 0){
+    // Show no-content card when there are no rows for this page
+    cards.append(
+      el('div',{className:'card', style:'grid-column:span 12;min-height:140px'},
+        el('div',{className:'card-h'},
+          'No content for ‘'+currentPage+'’',
+          el('div',{className:'h-actions'},
+            el('button',{className:'btn', onclick: openSetup},'Open Setup')
+          )
+        ),
+        el('div',{className:'card-b'},
+          el('div',{className:'hint', style:'display:block'},'Use Setup to add rows for this page.')
+        )
+      )
+    );
+    return;
+  }
+  // Generate a card for each embed row
+  for(const rec of list){
+    const card = el('div',{className:'card'});
+    card.style.minHeight = (rec.height || 380) + 'px';
+    // Ensure cards are positioned relatively for absolute resizers
+    card.style.position = 'relative';
+    // Set default grid span if not already defined: full width when only one embed, half otherwise
+    if(!rec.span){ rec.span = isSingle ? 12 : 6; }
+    card.style.gridColumn = 'span ' + rec.span;
+    // Actions: refresh and open
+    const actions = el('div',{className:'h-actions'},
+      el('button',{className:'btn', title:'Refresh', onclick: () => reloadIframe(card)},'Refresh'),
+      el('button',{className:'btn', title:'Open in new tab', onclick: () => window.open(rec.url, '_blank')},'Open')
+    );
+    // Zoom controls only for embed rows (no type)
+    if(!rec.type){
+      actions.append(
+        el('button',{className:'btn', title:'Zoom out', onclick: () => {
+          rec.zoom = Math.max((rec.zoom || 1) - 0.1, 0.5);
+          saveConfig(rows);
+          renderCards();
+        }},'−'),
+        el('button',{className:'btn', title:'Zoom in', onclick: () => {
+          rec.zoom = (rec.zoom || 1) + 0.1;
+          saveConfig(rows);
+          renderCards();
+        }},'+')
+      );
+    }
+    // Header
+    const h = el('div',{className:'card-h'},
+      el('div',{}, rec.title || '(Untitled)'),
+      actions
+    );
+    // Compact style for embed cards
+    if(!rec.type){ h.classList.add('embed'); }
+    // Iframe with optional zoom
+    const zoomVal = rec.zoom || 1;
+    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer'});
+    // Apply zoom scaling: scale the iframe and adjust its intrinsic size so the container remains fixed.
+    iframeEl.style.transform = 'scale('+zoomVal+')';
+    iframeEl.style.transformOrigin = '0 0';
+    iframeEl.style.width = (100/zoomVal) + '%';
+    iframeEl.style.height = (100/zoomVal) + '%';
+    const body = el('div',{className:'card-b'},
+      el('span',{className:'badge'}, (new URL(rec.url)).hostname ),
+      iframeEl
+    );
+    // Append header, body, hint, vertical resizer and horizontal width resizer
+    card.append(
+      h,
+      body,
+      el('div',{className:'hint'},''),
+      createResizer(card, rec),
+      createWidthResizer(card, rec, isSingle)
+    );
+    // Show hint if embed fails to load
+    let timer = setTimeout(() => cardHint(body, rec.url), 2500);
+    body.querySelector('iframe').addEventListener('load',() => {
+      clearTimeout(timer);
+      body.classList.remove('error');
+    });
+    cards.append(card);
+  }
+  // Update status message
+  setStatus('Showing '+list.length+' item(s) on “'+currentPage+'”.');
+}
+function reloadIframe(card){ const iframe = card.querySelector("iframe"); const src = iframe.getAttribute("src"); iframe.setAttribute("src", src); }
+const dlg = document.getElementById("dlg");
+const tbody = document.getElementById("tbody");
+function openSetup(){ dlg.showModal(); drawTable(); }
+function closeSetup(){ dlg.close(); }
+function drawTable(){ tbody.innerHTML = ""; rows.forEach((r, i) => { const tr = el("tr"); const tdPage  = el("td",{}, el("input",{type:"text", value: r.page || "", oninput: e => { rows[i].page = e.target.value; saveConfig(rows); renderTabs(); }})); const tdTitle = el("td",{}, el("input",{type:"text", value: r.title|| "", oninput: e => { rows[i].title = e.target.value; saveConfig(rows); }})); const tdHeight = el("td",{}, el("input",{type:"number", min:100, value: r.height || "", oninput: e => { rows[i].height = parseInt(e.target.value)||null; saveConfig(rows); }})); const tdUrl   = el("td",{}, el("input",{type:"text", value: r.url  || "", oninput: e => { rows[i].url   = e.target.value; saveConfig(rows); }})); const actions = el("td",{}, el("div",{className:"row-actions"}, el("button",{className:"btn", onclick:()=>moveRow(i,-1)}, "↑"), el("button",{className:"btn", onclick:()=>moveRow(i, 1)}, "↓"), el("button",{className:"btn", onclick:()=>duplicateRow(i)}, "Copy"), el("button",{className:"btn", onclick:()=>removeRow(i)}, "Delete") )); tr.append(tdPage, tdTitle, tdHeight, tdUrl, actions); tbody.append(tr); }); }
+function addRow(){ rows.push({ page:"New", title:"New Card", url:"https://example.com", height:380 }); saveConfig(rows); drawTable(); renderTabs(); }
+function moveRow(i, dir){ const j = i + dir; if(j<0 || j>=rows.length) return; const t = rows[i]; rows[i] = rows[j]; rows[j] = t; saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
+function duplicateRow(i){ rows.splice(i+1, 0, {...rows[i]}); saveConfig(rows); drawTable(); }
+function removeRow(i){ rows.splice(i, 1); saveConfig(rows); drawTable(); renderTabs(); if(!uniquePages(rows).includes(currentPage)) currentPage = uniquePages(rows)[0] || "Setup"; renderCards(); }
+function seedExamples(){ rows = DEFAULTS.slice(); saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
+function exportConfig(){ const json = JSON.stringify(rows, null, 2); const blob = new Blob([json], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = el("a",{href:url, download:"n6hub-config.json"}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function importConfig(){ const input = el("input",{type:"file", accept:"application/json"}); input.onchange = async () => { const file = input.files[0]; if(!file) return; const text = await file.text(); try{ const next = JSON.parse(text); if(!Array.isArray(next)) throw new Error("Invalid format"); rows = next; saveConfig(rows); renderTabs(); renderCards(); if(dlg.open) drawTable(); }catch(e){ alert("Import failed: " + e.message); } }; input.click(); }
+const mode = document.getElementById("mode");
+(function initTheme(){ const saved = localStorage.getItem("n6hub:theme") || "dark"; document.documentElement.classList.toggle("light", saved==="light"); mode.checked = saved==="light"; })();
+mode.onchange = () => { const light = mode.checked; document.documentElement.classList.toggle("light", light); localStorage.setItem("n6hub:theme", light ? "light" : "dark"); };
+document.getElementById("btn-setup").onclick = openSetup;
+document.getElementById("closeDlg").onclick = closeSetup;
+document.getElementById("addRow").onclick = addRow;
+document.getElementById("seed").onclick = seedExamples;
+document.getElementById("save").onclick = () => { saveConfig(rows); setStatus("Saved."); };
+document.getElementById("btn-export").onclick = exportConfig;
+document.getElementById("btn-import").onclick = importConfig;
+renderTabs();
+renderCards();
+(function(d,s,id){
+  // Load Tomorrow.io widget SDK once and invoke renderWidget when loaded
+  if(d.getElementById(id)){
+    if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); }
+    return;
+  }
+  const fjs=d.getElementsByTagName(s)[0];
+  const js=d.createElement(s);
+  js.id=id;
+  js.src="https://www.tomorrow.io/v1/widget/sdk/sdk.bundle.min.js";
+  js.onload=function(){
+    if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); }
+  };
+  fjs.parentNode.insertBefore(js,fjs);
+})(document,'script','tomorrow-sdk');
+</script>
+</body>
+</html>
