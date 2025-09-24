@@ -68,7 +68,18 @@
     border:1px solid var(--ring); border-radius:16px; padding:14px; box-shadow: var(--shadow);
   }
   .grid{
-    display:grid; gap:14px; grid-template-columns: repeat(12, 1fr);
+    position:relative;
+    display:grid;
+    gap:14px;
+    grid-template-columns: repeat(12, 1fr);
+    background-image: none;
+    background-size: 24px 24px;
+  }
+  .grid.editing{
+    background-image: radial-gradient(circle at 1px 1px,
+      color-mix(in srgb, var(--brand2) 45%, transparent) 0,
+      color-mix(in srgb, var(--brand2) 45%, transparent) 2px,
+      transparent 0);
   }
   .card{
     grid-column: span 6; min-height: 380px;
@@ -84,17 +95,42 @@
   }
   .h-actions{ display:flex; gap:6px; align-items:center; }
   .card-b{ position:relative; flex:1; background:#0a0f20; overflow:auto; }
+  .card-b iframe{ transition: opacity .25s ease; }
+  .card-b.loading iframe{ opacity:0; }
+  .card-b .skeleton{
+    position:absolute;
+    inset:0;
+    border-radius:12px;
+    background:
+      linear-gradient(90deg,
+        rgba(255,255,255,0.08) 25%,
+        rgba(255,255,255,0.18) 37%,
+        rgba(255,255,255,0.08) 63%);
+    background-size: 200% 100%;
+    animation: skeleton-sheen 1.4s ease infinite;
+    opacity:0;
+    pointer-events:none;
+    z-index:2;
+  }
+  .card-b.loading .skeleton{ opacity:1; }
+  .card-b.error .skeleton{ opacity:0; }
+  @keyframes skeleton-sheen{
+    0%{ background-position: 200% 0; }
+    100%{ background-position: -200% 0; }
+  }
   iframe{
     width:100%; height:100%; border:0; background:#0a0f20;
   }
   .badge{
     position:absolute; top:8px; left:8px; background:#0008; color:#fff; font-size:12px;
     padding:4px 8px; border-radius:999px; backdrop-filter: blur(6px); border:1px solid #ffffff22;
+    z-index:3;
   }
   .hint{
     position:absolute; inset:auto 10px 10px 10px; padding:10px 12px; border-radius:12px;
     background:#000a; color:#fff; font-size:12px; line-height:1.3; border:1px solid #ffffff22;
     display:none;
+    z-index:4;
   }
   .card-b.error .hint{ display:block }
   dialog{
@@ -206,6 +242,15 @@
     right: 0;
   }
 
+  .resizer,
+  .resizer-x{
+    display:none;
+  }
+  .grid.editing .resizer,
+  .grid.editing .resizer-x{
+    display:block;
+  }
+
   /* ===== Styles for Links page ===== */
   /* Grid container for cards in card view */
   .links-grid {
@@ -308,6 +353,7 @@
     <div class="logo">N6 HUB</div>
     <div class="grow"></div>
     <button class="btn" id="btn-setup">Setup</button>
+    <button class="btn ghost" id="btn-layout" aria-pressed="false">Edit layout</button>
     <button class="btn ghost" id="btn-export">Export</button>
     <button class="btn ghost" id="btn-import">Import</button>
     <label class="tog" title="Toggle light/dark">
@@ -363,6 +409,9 @@
 
 <script>
 const LS_KEY = "n6hub:config:v2";
+const LAST_PAGE_KEY = "n6hub:lastPage";
+const NOTES_KEY = "n6hub:notes";
+const HINT_DELAY = 1200;
 const DEFAULTS = [
   { page:"BI",      title:"ServiceNow",    url:"https://app.powerbi.com/reportEmbed?reportId=e1e7ca50-bdb4-4d95-a482-bfe8e1479cef&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
   { page:"BI",      title:"InMoment Tags", url:"https://app.powerbi.com/reportEmbed?reportId=9c9e03df-cf99-4d67-863b-4aabcf56adf8&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
@@ -404,6 +453,40 @@ function el(tag, props={}, ...kids){
   }
   return e;
 }
+function debounce(fn, wait=300){
+  let timeout;
+  let lastArgs;
+  let lastThis;
+  function invoke(){
+    const args = lastArgs;
+    const ctx = lastThis;
+    timeout = null;
+    lastArgs = undefined;
+    lastThis = undefined;
+    fn.apply(ctx, args);
+  }
+  function debounced(...args){
+    lastArgs = args;
+    lastThis = this;
+    if(timeout){ clearTimeout(timeout); }
+    timeout = setTimeout(invoke, wait);
+  }
+  debounced.flush = () => {
+    if(timeout){
+      clearTimeout(timeout);
+      invoke();
+    }
+  };
+  debounced.cancel = () => {
+    if(timeout){
+      clearTimeout(timeout);
+    }
+    timeout = null;
+    lastArgs = undefined;
+    lastThis = undefined;
+  };
+  return debounced;
+}
 function setStatus(msg){ document.getElementById("status").textContent = msg; }
 let rows = loadConfig();
 
@@ -418,11 +501,113 @@ if(!rows.some(r => r.page === 'Links')){
   rows.push({ page:'Links', title:'Links', type:'links', height:500, links: [], viewMode:'list' });
   saveConfig(rows);
 }
-let currentPage = uniquePages(rows)[0] || "Home";
 const tabbar = document.getElementById("tabbar");
 const cards = document.getElementById("cards");
-function renderTabs(){ tabbar.innerHTML = ""; const pages = uniquePages(rows); if(pages.length===0) pages.push("Setup"); for(const p of pages){ const b = el("button", {className:"chip" + (p===currentPage?" active":"")}); b.textContent = p; b.onclick = () => { currentPage = p; renderCards(); renderTabs(); }; tabbar.appendChild(b); } }
-function createResizer(card, rec){ const resize = el('div',{className:'resizer'}); resize.onpointerdown = (e) => { e.preventDefault(); const startY = e.clientY; const startH = parseFloat(card.style.minHeight) || card.offsetHeight; function move(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; card.style.minHeight = newH + 'px'; } function up(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; rec.height = Math.round(newH); saveConfig(rows); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); } document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); }; return resize; }
+const layoutToggle = document.getElementById("btn-layout");
+const queueConfigSave = debounce(() => saveConfig(rows), 300);
+const saveNotesDebounced = debounce(value => localStorage.setItem(NOTES_KEY, value), 300);
+let layoutEditing = false;
+let skipHashUpdate = false;
+function getPageFromHash(){
+  const raw = window.location.hash;
+  if(!raw) return '';
+  try{ return decodeURIComponent(raw.slice(1)); }
+  catch{ return raw.slice(1); }
+}
+function updateHashForPage(page){
+  if(!page) return;
+  const encoded = '#' + encodeURIComponent(page);
+  if(window.location.hash === encoded) return;
+  history.replaceState(null, '', encoded);
+}
+function rememberCurrentPage(){
+  if(!currentPage) return;
+  if(currentPage === 'Setup') return;
+  localStorage.setItem(LAST_PAGE_KEY, currentPage);
+  if(skipHashUpdate) return;
+  updateHashForPage(currentPage);
+}
+function determineInitialPage(){
+  const pages = uniquePages(rows);
+  if(pages.length === 0) return 'Setup';
+  const hashPage = getPageFromHash();
+  if(hashPage && pages.includes(hashPage)) return hashPage;
+  const stored = localStorage.getItem(LAST_PAGE_KEY);
+  if(stored && pages.includes(stored)) return stored;
+  return pages[0];
+}
+let currentPage = determineInitialPage();
+function updateLayoutToggleUI(){
+  if(!layoutToggle) return;
+  layoutToggle.textContent = layoutEditing ? 'Lock layout' : 'Edit layout';
+  layoutToggle.classList.toggle('brand', layoutEditing);
+  layoutToggle.setAttribute('aria-pressed', layoutEditing);
+  cards.classList.toggle('editing', layoutEditing);
+}
+if(layoutToggle){
+  layoutToggle.addEventListener('click', () => {
+    layoutEditing = !layoutEditing;
+    updateLayoutToggleUI();
+    setStatus(layoutEditing ? 'Layout editing enabled. Drag handles to resize cards.' : 'Layout locked.');
+  });
+  updateLayoutToggleUI();
+}
+function renderTabs(){
+  tabbar.innerHTML = "";
+  const pages = uniquePages(rows);
+  if(pages.length===0) pages.push("Setup");
+  for(const p of pages){
+    const isActive = p === currentPage;
+    const b = el("button", {className:"chip" + (isActive?" active":""), type:"button", 'data-page':p});
+    if(isActive) b.setAttribute('aria-current','page');
+    b.textContent = p;
+    b.onclick = () => setCurrentPage(p);
+    tabbar.appendChild(b);
+  }
+}
+function setCurrentPage(page, opts={}){
+  const { fromHash = false } = opts;
+  const pages = uniquePages(rows);
+  if(!pages.includes(page)) return;
+  const prevSkip = skipHashUpdate;
+  skipHashUpdate = fromHash;
+  if(page === currentPage){
+    rememberCurrentPage();
+    skipHashUpdate = prevSkip;
+    return;
+  }
+  currentPage = page;
+  renderTabs();
+  renderCards();
+  skipHashUpdate = prevSkip;
+}
+function createResizer(card, rec){
+  const resize = el('div',{className:'resizer'});
+  resize.onpointerdown = (e) => {
+    if(!layoutEditing) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = parseFloat(card.style.minHeight) || card.offsetHeight;
+    function move(ev){
+      const dy = ev.clientY - startY;
+      let newH = startH + dy;
+      if(newH < 100) newH = 100;
+      card.style.minHeight = newH + 'px';
+    }
+    function up(ev){
+      const dy = ev.clientY - startY;
+      let newH = startH + dy;
+      if(newH < 100) newH = 100;
+      rec.height = Math.round(newH);
+      saveConfig(rows);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  };
+  return resize;
+}
 
 // Create a horizontal resizer to adjust card width (grid span). This allows users to drag the right edge
 // of an embed card and change how many grid columns it spans. The `isSingle` flag indicates
@@ -430,20 +615,17 @@ function createResizer(card, rec){ const resize = el('div',{className:'resizer'}
 function createWidthResizer(card, rec, isSingle){
   const resize = el('div',{className:'resizer-x'});
   resize.onpointerdown = (e) => {
+    if(!layoutEditing) return;
     e.preventDefault();
     const startX = e.clientX;
-    // Determine starting span: use existing rec.span or default (full width if single card else half)
     let startSpan = rec.span || (isSingle ? 12 : 6);
-    // Compute container metrics for column widths and gap
     const container = cards;
     const style = window.getComputedStyle(container);
     const gapVal = parseFloat(style.gap) || 0;
     const containerWidth = container.clientWidth;
-    // Each column width is container width minus total gaps divided by 12 columns
     const colWidth = (containerWidth - gapVal * 11) / 12;
     function move(ev){
       const dx = ev.clientX - startX;
-      // Determine how many columns to change by approximating with column+gap width
       let delta = Math.round(dx / (colWidth + gapVal));
       let newSpan = startSpan + delta;
       if(newSpan < 1) newSpan = 1;
@@ -451,8 +633,7 @@ function createWidthResizer(card, rec, isSingle){
       rec.span = newSpan;
       card.style.gridColumn = 'span ' + newSpan;
     }
-    function up(ev){
-      // Persist the new span on release
+    function up(){
       saveConfig(rows);
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
@@ -463,7 +644,20 @@ function createWidthResizer(card, rec, isSingle){
   return resize;
 }
 function renderWeatherPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 600)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Weather'); const body = el('div',{className:'card-b'}, el('div',{className:'tomorrow', 'data-location-id':'111783,128587,114900,122795,111151,124126','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'current6', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'}))), el('div',{className:'tomorrow','data-location-id':'111783','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'upcoming', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'})))); card.append(h, body); cards.append(card); if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); } }
-function renderNotesPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Notes'); const body = el('div',{className:'card-b'}); const notesArea = el('div',{className:'notes-area', contentEditable:'true'}); notesArea.innerText = localStorage.getItem('n6hub:notes') || ''; notesArea.oninput = () => { localStorage.setItem('n6hub:notes', notesArea.innerText); }; body.append(notesArea); card.append(h, body); cards.append(card); }
+function renderNotesPage(rec){
+  cards.innerHTML = "";
+  const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'});
+  const h = el('div',{className:'card-h'}, rec.title || 'Notes');
+  const body = el('div',{className:'card-b'});
+  const notesArea = el('div',{className:'notes-area', contentEditable:'true'});
+  notesArea.innerText = localStorage.getItem(NOTES_KEY) || '';
+  notesArea.addEventListener('input', () => {
+    saveNotesDebounced(notesArea.innerText);
+  });
+  body.append(notesArea);
+  card.append(h, body);
+  cards.append(card);
+}
 function renderTasksPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Tasks'); const body = el('div',{className:'card-b'}, el('div',{className:'hint', style:'display:block'}, 'Task list is empty. Add tasks via upcoming setup.')); card.append(h, body); cards.append(card); }
 
 // Render a spreadsheet-like table with arrow-key navigation and sortable columns
@@ -520,7 +714,7 @@ function renderTablePage(rec){
       // Save value on input
       td.oninput = () => {
         rec.data[r][c] = td.innerText;
-        saveConfig(rows);
+        queueConfigSave();
       };
       // Arrow key navigation
       td.onkeydown = (e) => {
@@ -673,14 +867,26 @@ function renderLinksPage(rec){
   cards.append(card);
   setStatus('Showing links.');
 }
-function cardHint(block, url){ block.classList.add("error"); block.querySelector(".hint").innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`; }
+function cardHint(block, url){
+  block.classList.add('error');
+  block.classList.remove('loading');
+  const hint = block.querySelector('.hint');
+  if(hint){
+    if(url){
+      hint.innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`;
+    }else{
+      hint.textContent = 'This site may block embedding (X-Frame-Options / CSP).';
+    }
+  }
+  block._hintTimer = null;
+}
 function renderCards(){
-  // Handle special pages first
+  cards.classList.toggle('editing', layoutEditing);
+  rememberCurrentPage();
   if(currentPage === 'Weather'){
     const rec = rows.find(r => r.page === 'Weather');
     if(rec){
       renderWeatherPage(rec);
-      // Ensure Tomorrow.io widgets re-render after the card is inserted
       setTimeout(() => {
         if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); }
       }, 0);
@@ -704,7 +910,6 @@ function renderCards(){
       return;
     }
   }
-  // Render table page (Excel-like)
   if(currentPage === 'Table'){
     const rec = rows.find(r => r.page === 'Table');
     if(rec){
@@ -713,8 +918,6 @@ function renderCards(){
       return;
     }
   }
-
-  // Render links page
   if(currentPage === 'Links'){
     const rec = rows.find(r => r.page === 'Links');
     if(rec){
@@ -722,14 +925,10 @@ function renderCards(){
       return;
     }
   }
-  // Clear existing cards
   cards.innerHTML = "";
-  // Build list of embeds for current page
   const list = rows.filter(r => (r.page||"").trim() === currentPage && !r.type);
-  // Determine if there's only one embed on this page. Used for default width.
   const isSingle = list.length === 1;
   if(list.length === 0){
-    // Show no-content card when there are no rows for this page
     cards.append(
       el('div',{className:'card', style:'grid-column:span 12;min-height:140px'},
         el('div',{className:'card-h'},
@@ -745,21 +944,16 @@ function renderCards(){
     );
     return;
   }
-  // Generate a card for each embed row
   for(const rec of list){
     const card = el('div',{className:'card'});
     card.style.minHeight = (rec.height || 380) + 'px';
-    // Ensure cards are positioned relatively for absolute resizers
     card.style.position = 'relative';
-    // Set default grid span if not already defined: full width when only one embed, half otherwise
     if(!rec.span){ rec.span = isSingle ? 12 : 6; }
     card.style.gridColumn = 'span ' + rec.span;
-    // Actions: refresh and open
     const actions = el('div',{className:'h-actions'},
-      el('button',{className:'btn', title:'Refresh', onclick: () => reloadIframe(card)},'Refresh'),
-      el('button',{className:'btn', title:'Open in new tab', onclick: () => window.open(rec.url, '_blank')},'Open')
+      el('button',{className:'btn', title:'Refresh', onclick: () => reloadIframe(card, rec)},'Refresh'),
+      el('button',{className:'btn', title:'Open in new tab', onclick: () => { if(rec.url){ window.open(rec.url, '_blank'); }}},'Open')
     );
-    // Zoom controls only for embed rows (no type)
     if(!rec.type){
       actions.append(
         el('button',{className:'btn', title:'Zoom out', onclick: () => {
@@ -774,45 +968,74 @@ function renderCards(){
         }},'+')
       );
     }
-    // Header
     const h = el('div',{className:'card-h'},
       el('div',{}, rec.title || '(Untitled)'),
       actions
     );
-    // Compact style for embed cards
     if(!rec.type){ h.classList.add('embed'); }
-    // Iframe with optional zoom
     const zoomVal = rec.zoom || 1;
-    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer'});
-    // Apply zoom scaling: scale the iframe and adjust its intrinsic size so the container remains fixed.
+    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer', loading:'lazy'});
     iframeEl.style.transform = 'scale('+zoomVal+')';
     iframeEl.style.transformOrigin = '0 0';
     iframeEl.style.width = (100/zoomVal) + '%';
     iframeEl.style.height = (100/zoomVal) + '%';
-    const body = el('div',{className:'card-b'},
-      el('span',{className:'badge'}, (new URL(rec.url)).hostname ),
-      iframeEl
+    let badgeText = '';
+    try{
+      badgeText = new URL(rec.url).hostname;
+    }catch{
+      badgeText = (rec.url || '').replace(/^https?:\/\//,'').split('/')[0] || 'Preview';
+    }
+    const skeleton = el('div',{className:'skeleton','aria-hidden':'true'});
+    const hint = el('div',{className:'hint'},'');
+    const body = el('div',{className:'card-b loading'},
+      skeleton,
+      el('span',{className:'badge'}, badgeText),
+      iframeEl,
+      hint
     );
-    // Append header, body, hint, vertical resizer and horizontal width resizer
     card.append(
       h,
       body,
-      el('div',{className:'hint'},''),
       createResizer(card, rec),
       createWidthResizer(card, rec, isSingle)
     );
-    // Show hint if embed fails to load
-    let timer = setTimeout(() => cardHint(body, rec.url), 2500);
-    body.querySelector('iframe').addEventListener('load',() => {
-      clearTimeout(timer);
+    if(body._hintTimer){ clearTimeout(body._hintTimer); }
+    body._hintTimer = setTimeout(() => cardHint(body, rec.url), HINT_DELAY);
+    iframeEl.addEventListener('load', () => {
+      if(body._hintTimer){
+        clearTimeout(body._hintTimer);
+        body._hintTimer = null;
+      }
       body.classList.remove('error');
+      body.classList.remove('loading');
+      body.classList.add('loaded');
+      const hintEl = body.querySelector('.hint');
+      if(hintEl){
+        hintEl.textContent = '';
+      }
     });
     cards.append(card);
   }
-  // Update status message
   setStatus('Showing '+list.length+' item(s) on “'+currentPage+'”.');
 }
-function reloadIframe(card){ const iframe = card.querySelector("iframe"); const src = iframe.getAttribute("src"); iframe.setAttribute("src", src); }
+function reloadIframe(card, rec){
+  const iframe = card.querySelector('iframe');
+  if(!iframe) return;
+  const body = card.querySelector('.card-b');
+  const targetUrl = (rec && rec.url) || iframe.getAttribute('src');
+  if(body){
+    body.classList.remove('error');
+    body.classList.remove('loaded');
+    body.classList.add('loading');
+    const hintEl = body.querySelector('.hint');
+    if(hintEl){ hintEl.textContent = ''; }
+    if(body._hintTimer){
+      clearTimeout(body._hintTimer);
+    }
+    body._hintTimer = setTimeout(() => cardHint(body, targetUrl), HINT_DELAY);
+  }
+  iframe.setAttribute('src', targetUrl);
+}
 const dlg = document.getElementById("dlg");
 const tbody = document.getElementById("tbody");
 function openSetup(){ dlg.showModal(); drawTable(); }
@@ -821,9 +1044,36 @@ function drawTable(){ tbody.innerHTML = ""; rows.forEach((r, i) => { const tr = 
 function addRow(){ rows.push({ page:"New", title:"New Card", url:"https://example.com", height:380 }); saveConfig(rows); drawTable(); renderTabs(); }
 function moveRow(i, dir){ const j = i + dir; if(j<0 || j>=rows.length) return; const t = rows[i]; rows[i] = rows[j]; rows[j] = t; saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
 function duplicateRow(i){ rows.splice(i+1, 0, {...rows[i]}); saveConfig(rows); drawTable(); }
-function removeRow(i){ rows.splice(i, 1); saveConfig(rows); drawTable(); renderTabs(); if(!uniquePages(rows).includes(currentPage)) currentPage = uniquePages(rows)[0] || "Setup"; renderCards(); }
+function removeRow(i){
+  rows.splice(i, 1);
+  saveConfig(rows);
+  drawTable();
+  const pages = uniquePages(rows);
+  if(!pages.includes(currentPage)){
+    if(pages.length){
+      setCurrentPage(pages[0]);
+    }else{
+      currentPage = 'Setup';
+      renderTabs();
+      renderCards();
+    }
+  }else{
+    renderTabs();
+    renderCards();
+  }
+}
 function seedExamples(){ rows = DEFAULTS.slice(); saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
-function exportConfig(){ const json = JSON.stringify(rows, null, 2); const blob = new Blob([json], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = el("a",{href:url, download:"n6hub-config.json"}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function exportConfig(){
+  queueConfigSave.flush();
+  const json = JSON.stringify(rows, null, 2);
+  const blob = new Blob([json], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = el("a",{href:url, download:"n6hub-config.json"});
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 function importConfig(){ const input = el("input",{type:"file", accept:"application/json"}); input.onchange = async () => { const file = input.files[0]; if(!file) return; const text = await file.text(); try{ const next = JSON.parse(text); if(!Array.isArray(next)) throw new Error("Invalid format"); rows = next; saveConfig(rows); renderTabs(); renderCards(); if(dlg.open) drawTable(); }catch(e){ alert("Import failed: " + e.message); } }; input.click(); }
 const mode = document.getElementById("mode");
 (function initTheme(){ const saved = localStorage.getItem("n6hub:theme") || "dark"; document.documentElement.classList.toggle("light", saved==="light"); mode.checked = saved==="light"; })();
@@ -832,9 +1082,25 @@ document.getElementById("btn-setup").onclick = openSetup;
 document.getElementById("closeDlg").onclick = closeSetup;
 document.getElementById("addRow").onclick = addRow;
 document.getElementById("seed").onclick = seedExamples;
-document.getElementById("save").onclick = () => { saveConfig(rows); setStatus("Saved."); };
+document.getElementById("save").onclick = () => {
+  queueConfigSave.flush();
+  saveConfig(rows);
+  setStatus("Saved.");
+};
 document.getElementById("btn-export").onclick = exportConfig;
 document.getElementById("btn-import").onclick = importConfig;
+window.addEventListener('hashchange', () => {
+  const page = getPageFromHash();
+  if(!page || page === currentPage) return;
+  const pages = uniquePages(rows);
+  if(pages.includes(page)){
+    setCurrentPage(page, {fromHash:true});
+  }
+});
+window.addEventListener('beforeunload', () => {
+  queueConfigSave.flush();
+  saveNotesDebounced.flush();
+});
 renderTabs();
 renderCards();
 (function(d,s,id){
