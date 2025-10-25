@@ -706,70 +706,53 @@
     function renderNotesList(){
       notesPreview.innerHTML = '';
       const manualTasks = state.tasks.filter(t => !t.fromNotes);
-      if(manualTasks.length){
+      const tasksSorted = manualTasks.slice().sort((a,b) => {
+        const doneA = a.status === 'done' ? 1 : 0;
+        const doneB = b.status === 'done' ? 1 : 0;
+        if(doneA !== doneB) return doneA - doneB;
+        const aDue = a.dueDate ?? Infinity;
+        const bDue = b.dueDate ?? Infinity;
+        if(aDue !== bDue) return aDue - bDue;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      let appendedMainHeader = false;
+      const ensureMainHeader = () => {
+        if(appendedMainHeader) return;
         const header = document.createElement('div');
         header.className = 'note-section-title';
-        header.textContent = 'Tasks';
+        header.textContent = 'Main Checklist';
         notesPreview.appendChild(header);
-        const tasksSorted = manualTasks.slice().sort((a,b) => {
-          const doneA = a.status === 'done' ? 1 : 0;
-          const doneB = b.status === 'done' ? 1 : 0;
-          if(doneA !== doneB) return doneA - doneB;
-          const aDue = a.dueDate ?? Infinity;
-          const bDue = b.dueDate ?? Infinity;
-          if(aDue !== bDue) return aDue - bDue;
-          return (a.createdAt || 0) - (b.createdAt || 0);
+        appendedMainHeader = true;
+      };
+      tasksSorted.forEach(task => {
+        ensureMainHeader();
+        const wrapper = document.createElement('div');
+        wrapper.className = 'note-item note-check';
+        wrapper.draggable = false;
+        if(task.status === 'done'){ wrapper.classList.add('done'); }
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.status === 'done';
+        checkbox.addEventListener('change', (e) => {
+          task.status = e.target.checked ? 'done' : 'backlog';
+          wrapper.classList.toggle('done', e.target.checked);
+          markDirty();
+          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+          if(selectedDate) renderDay(selectedDate);
+          renderNotesList();
         });
-        tasksSorted.forEach(task => {
-          const wrapper = document.createElement('div');
-          wrapper.className = 'note-item note-check note-task';
-          wrapper.draggable = false;
-          wrapper.classList.toggle('done', task.status === 'done');
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.checked = task.status === 'done';
-          checkbox.addEventListener('change', (e) => {
-            task.status = e.target.checked ? 'done' : 'backlog';
-            wrapper.classList.toggle('done', e.target.checked);
-            markDirty();
-            renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-            if(selectedDate) renderDay(selectedDate);
-            renderNotesList();
-          });
-          const content = document.createElement('div');
-          content.className = 'note-task-content';
-          const title = document.createElement('div');
-          title.className = 'note-task-title';
-          title.textContent = task.title || '(Untitled)';
-          content.appendChild(title);
-          const metaBits = [];
-          if(task.dueDate){ metaBits.push('Due ' + formatDate(task.dueDate)); }
-          if(Array.isArray(task.tags) && task.tags.length){ metaBits.push(task.tags.join(', ')); }
-          if(task.details){
-            const detailPreview = task.details.trim().split(/\n+/)[0];
-            if(detailPreview) metaBits.push(detailPreview);
-          }
-          if(task.checklist && task.checklist.length){
-            const doneCount = task.checklist.filter(item => item.done).length;
-            metaBits.push(`${doneCount}/${task.checklist.length} checklist`);
-          }
-          if(metaBits.length){
-            const meta = document.createElement('div');
-            meta.className = 'note-task-meta';
-            meta.textContent = metaBits.join(' • ');
-            content.appendChild(meta);
-          }
-          wrapper.appendChild(checkbox);
-          wrapper.appendChild(content);
-          wrapper.addEventListener('click', (ev) => {
-            if(ev.target.closest('input')) return;
-            openTaskModalForId(task.id);
-          });
-          notesPreview.appendChild(wrapper);
+        const span = document.createElement('span');
+        span.className = 'note-text';
+        span.textContent = task.title || '(Untitled)';
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(span);
+        wrapper.addEventListener('click', (ev) => {
+          if(ev.target.closest('input')) return;
+          openTaskModalForId(task.id);
         });
-      }
+        notesPreview.appendChild(wrapper);
+      });
       const lines = String(state.notes||'').split(/\r?\n/);
-      let appendedNoteHeader = false;
       lines.forEach((raw, idx) => {
         if(!raw || /^\s*$/.test(raw)) return;
         // Determine whether the item is checked
@@ -784,13 +767,7 @@
           text = match ? (match[1] || '').trim() : raw.trim();
         }
         if(!text) return;
-        if(!appendedNoteHeader){
-          const header = document.createElement('div');
-          header.className = 'note-section-title';
-          header.textContent = manualTasks.length ? 'Checklist' : 'Main Checklist';
-          notesPreview.appendChild(header);
-          appendedNoteHeader = true;
-        }
+        ensureMainHeader();
         const div = document.createElement('div');
         div.className = 'note-item note-check';
         div.draggable = true;
