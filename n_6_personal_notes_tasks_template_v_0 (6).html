@@ -116,6 +116,41 @@
     .note-item.drag-over{
       background: var(--head-tint-border);
     }
+    .note-section-title{
+      margin:12px 0 4px;
+      font-size:12px;
+      font-weight:700;
+      color:var(--muted);
+      letter-spacing:0.05em;
+      text-transform:uppercase;
+    }
+    .note-section-title:first-child{margin-top:0;}
+    .note-item.note-task{
+      cursor:pointer;
+      align-items:flex-start;
+    }
+    .note-item.note-task input[type="checkbox"]{
+      margin-top:4px;
+    }
+    .note-task-content{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .note-task-title{font-weight:600;color:var(--ink);}
+    .note-task-meta{font-size:12px;color:var(--muted);}
+    .note-item.note-task.done .note-task-title{
+      text-decoration:line-through;
+      color:var(--ink-light);
+    }
+    .modal-checklist{list-style:none;padding-left:0;margin:8px 0 0;}
+    .modal-checklist li{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+    .modal-checklist li:last-child{margin-bottom:0;}
+    .modal-checklist input[type="checkbox"]{width:18px;height:18px;}
+    .modal-checklist input[type="text"]{flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;}
+    .modal-check-remove{background:none;border:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:4px;}
+    .modal-check-remove:hover{color:var(--ink);}
 
     /* Modal overlay for editing items from the checklist */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);z-index:2000;}
@@ -340,7 +375,7 @@
   <div class="wrap">
     <div class="tab-bar">
       <div class="tab-buttons">
-        <button data-view="notes" class="active">Notes</button>
+        <button data-view="notes" class="active">Main</button>
         <button data-view="tasks">Tasks</button>
         <button data-view="kanban">Kanban</button>
         <button data-view="table">Table</button>
@@ -348,7 +383,7 @@
         <button data-view="day">My Day</button>
       </div>
       <select class="tab-select" id="tabSelect" aria-label="Navigate">
-        <option value="notes">Notes</option>
+        <option value="notes">Main</option>
         <option value="tasks">Tasks</option>
         <option value="kanban">Kanban</option>
         <option value="table">Table</option>
@@ -377,8 +412,9 @@
       </div>
     </div>
 
-    <!-- NOTES VIEW -->
+    <!-- MAIN VIEW -->
     <section id="view-notes" class="card">
+      <div class="card-head">Main</div>
       <div class="card-body">
         <!-- Input area for adding new checklist items -->
         <div class="toolbar" style="margin-bottom:8px;">
@@ -542,6 +578,13 @@
         <div class="field"><label>Details</label>
           <textarea id="modalDetails" rows="4" placeholder="Add notes or context"></textarea>
         </div>
+        <div class="field"><label>Checklist</label>
+          <div class="toolbar">
+            <input id="modalCheckInput" class="btn" placeholder="Add checklist item" style="padding:6px 10px"/>
+            <button class="btn" id="modalAddCheck">Add</button>
+          </div>
+          <ul id="modalChecklist" class="checklist modal-checklist"></ul>
+        </div>
         <div class="field"><label>Tags</label>
           <div id="modalTagContainer" class="tag-chips"></div>
           <div class="toolbar">
@@ -661,8 +704,72 @@
     }
     // Build interactive list of notes as a sortable checklist
     function renderNotesList(){
-      const lines = String(state.notes||'').split(/\r?\n/);
       notesPreview.innerHTML = '';
+      const manualTasks = state.tasks.filter(t => !t.fromNotes);
+      if(manualTasks.length){
+        const header = document.createElement('div');
+        header.className = 'note-section-title';
+        header.textContent = 'Tasks';
+        notesPreview.appendChild(header);
+        const tasksSorted = manualTasks.slice().sort((a,b) => {
+          const doneA = a.status === 'done' ? 1 : 0;
+          const doneB = b.status === 'done' ? 1 : 0;
+          if(doneA !== doneB) return doneA - doneB;
+          const aDue = a.dueDate ?? Infinity;
+          const bDue = b.dueDate ?? Infinity;
+          if(aDue !== bDue) return aDue - bDue;
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        });
+        tasksSorted.forEach(task => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'note-item note-check note-task';
+          wrapper.draggable = false;
+          wrapper.classList.toggle('done', task.status === 'done');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = task.status === 'done';
+          checkbox.addEventListener('change', (e) => {
+            task.status = e.target.checked ? 'done' : 'backlog';
+            wrapper.classList.toggle('done', e.target.checked);
+            markDirty();
+            renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+            if(selectedDate) renderDay(selectedDate);
+            renderNotesList();
+          });
+          const content = document.createElement('div');
+          content.className = 'note-task-content';
+          const title = document.createElement('div');
+          title.className = 'note-task-title';
+          title.textContent = task.title || '(Untitled)';
+          content.appendChild(title);
+          const metaBits = [];
+          if(task.dueDate){ metaBits.push('Due ' + formatDate(task.dueDate)); }
+          if(Array.isArray(task.tags) && task.tags.length){ metaBits.push(task.tags.join(', ')); }
+          if(task.details){
+            const detailPreview = task.details.trim().split(/\n+/)[0];
+            if(detailPreview) metaBits.push(detailPreview);
+          }
+          if(task.checklist && task.checklist.length){
+            const doneCount = task.checklist.filter(item => item.done).length;
+            metaBits.push(`${doneCount}/${task.checklist.length} checklist`);
+          }
+          if(metaBits.length){
+            const meta = document.createElement('div');
+            meta.className = 'note-task-meta';
+            meta.textContent = metaBits.join(' • ');
+            content.appendChild(meta);
+          }
+          wrapper.appendChild(checkbox);
+          wrapper.appendChild(content);
+          wrapper.addEventListener('click', (ev) => {
+            if(ev.target.closest('input')) return;
+            openTaskModalForId(task.id);
+          });
+          notesPreview.appendChild(wrapper);
+        });
+      }
+      const lines = String(state.notes||'').split(/\r?\n/);
+      let appendedNoteHeader = false;
       lines.forEach((raw, idx) => {
         if(!raw || /^\s*$/.test(raw)) return;
         // Determine whether the item is checked
@@ -677,6 +784,13 @@
           text = match ? (match[1] || '').trim() : raw.trim();
         }
         if(!text) return;
+        if(!appendedNoteHeader){
+          const header = document.createElement('div');
+          header.className = 'note-section-title';
+          header.textContent = manualTasks.length ? 'Checklist' : 'Main Checklist';
+          notesPreview.appendChild(header);
+          appendedNoteHeader = true;
+        }
         const div = document.createElement('div');
         div.className = 'note-item note-check';
         div.draggable = true;
@@ -955,9 +1069,9 @@
       document.getElementById('checkItem').value='';
       checkUl.innerHTML='';
       tagPaletteEl.querySelectorAll('.chip-tag.selected').forEach(x=>x.classList.remove('selected'));
-      markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate);
+      markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate);
     });
-    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }});
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); }});
 
     function renderTasks(){
       document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
@@ -991,7 +1105,7 @@
         card.appendChild(top);
         if(t.tags && t.tags.length){ const row=document.createElement('div'); row.className='tag-chips'; row.style.marginTop='6px'; t.tags.forEach(tag=>{ const pill=document.createElement('span'); pill.className='pill'; pill.textContent=tag; row.appendChild(pill); }); card.appendChild(row); }
         if(t.details){ const detail=document.createElement('div'); detail.className='task-details'; detail.textContent=t.details; card.appendChild(detail); }
-        if(t.checklist && t.checklist.length){ const ul=document.createElement('ul'); ul.className='checklist'; t.checklist.forEach((c,i)=>{ const li=document.createElement('li'); li.innerHTML=`<label><input type="checkbox" ${c.done?'checked':''}> ${esc(c.t)}</label>`; li.querySelector('input').addEventListener('change', (e)=>{ c.done=e.target.checked; markDirty(); }); ul.appendChild(li); }); card.appendChild(ul); }
+        if(t.checklist && t.checklist.length){ const ul=document.createElement('ul'); ul.className='checklist'; t.checklist.forEach((c,i)=>{ const li=document.createElement('li'); li.innerHTML=`<label><input type="checkbox" ${c.done?'checked':''}> ${esc(c.t)}</label>`; li.querySelector('input').addEventListener('change', (e)=>{ c.done=e.target.checked; markDirty(); renderNotesList(); }); ul.appendChild(li); }); card.appendChild(ul); }
         // Clicking on the card (except buttons/selects) opens the edit modal for this task
         card.addEventListener('click', (ev) => {
           // don't trigger if clicking delete button or status select
@@ -1025,7 +1139,7 @@
           renderTasks(); renderKanban(); renderGrid(); renderCalendar();
           if(selectedDate) renderDay(selectedDate);
         });
-        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); if(selectedDate) renderDay(selectedDate); });
+        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
         bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
         taskListEl.appendChild(card);
       });
@@ -1041,7 +1155,7 @@
         const body=document.createElement('div'); body.className='col-body';
         body.addEventListener('dragover',(e)=>{ e.preventDefault(); body.classList.add('drag-over'); });
         body.addEventListener('dragleave',()=> body.classList.remove('drag-over'));
-        body.addEventListener('drop',(e)=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(t){ t.status=l.k; markDirty(); renderKanban(); renderGrid(); renderTasks(); } body.classList.remove('drag-over'); });
+        body.addEventListener('drop',(e)=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(t){ t.status=l.k; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderNotesList(); if(selectedDate) renderDay(selectedDate); } body.classList.remove('drag-over'); });
         state.tasks.filter(t=>t.status===l.k).forEach(t=>{
           const c=document.createElement('div');
           c.className='kb-card';
@@ -1174,6 +1288,62 @@
     const modalCancelBtn = document.getElementById('modalCancelBtn');
     const modalCompleteToggle = document.getElementById('modalCompleteToggle');
     const modalDetails = document.getElementById('modalDetails');
+    const modalChecklist = document.getElementById('modalChecklist');
+    const modalCheckInput = document.getElementById('modalCheckInput');
+    const modalAddCheckBtn = document.getElementById('modalAddCheck');
+    let modalChecklistData = [];
+
+    function renderModalChecklist(){
+      if(!modalChecklist) return;
+      modalChecklist.innerHTML = '';
+      modalChecklistData.forEach((item, index) => {
+        const li = document.createElement('li');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!item.done;
+        checkbox.addEventListener('change', (e) => {
+          modalChecklistData[index].done = e.target.checked;
+        });
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.placeholder = 'Checklist item';
+        textInput.value = item.t || '';
+        textInput.addEventListener('input', (e) => {
+          modalChecklistData[index].t = e.target.value;
+        });
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'modal-check-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.setAttribute('aria-label', 'Remove checklist item');
+        removeBtn.addEventListener('click', () => {
+          modalChecklistData.splice(index, 1);
+          renderModalChecklist();
+        });
+        li.appendChild(checkbox);
+        li.appendChild(textInput);
+        li.appendChild(removeBtn);
+        modalChecklist.appendChild(li);
+      });
+    }
+
+    if(modalAddCheckBtn){
+      modalAddCheckBtn.addEventListener('click', () => {
+        const text = (modalCheckInput?.value || '').trim();
+        if(!text) return;
+        modalChecklistData.push({ t: text, done: false });
+        if(modalCheckInput){ modalCheckInput.value = ''; }
+        renderModalChecklist();
+      });
+    }
+    if(modalCheckInput){
+      modalCheckInput.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          modalAddCheckBtn?.click();
+        }
+      });
+    }
     let currentModalTask = null;
     function populateTaskModal(task){
       if(!task) return;
@@ -1216,6 +1386,13 @@
       }
       if(modalDetails){
         modalDetails.value = task.details || '';
+      }
+      if(modalChecklist){
+        modalChecklistData = Array.isArray(task.checklist) ? task.checklist.map(item => ({ t: item.t || '', done: !!item.done })) : [];
+        renderModalChecklist();
+      }
+      if(modalCheckInput){
+        modalCheckInput.value = '';
       }
       taskModal.style.display = 'flex';
     }
@@ -1264,6 +1441,9 @@
     function closeTaskModal(){
       taskModal.style.display = 'none';
       currentModalTask = null;
+      modalChecklistData = [];
+      if(modalChecklist){ modalChecklist.innerHTML = ''; }
+      if(modalCheckInput){ modalCheckInput.value = ''; }
     }
     modalSaveBtn.addEventListener('click', () => {
       if(!currentModalTask){ closeTaskModal(); return; }
@@ -1280,6 +1460,12 @@
       if(modalDueDate){
         currentModalTask.dueDate = modalDueDate.value ? parseDateInput(modalDueDate.value) : null;
       }
+      if(modalChecklist){
+        const cleaned = modalChecklistData
+          .map(item => ({ t: (item.t || '').trim(), done: !!item.done }))
+          .filter(item => item.t);
+        currentModalTask.checklist = cleaned;
+      }
       const newName = (modalNewTagInput.value || '').trim();
       if(newName){
         if(!state.tags.includes(newName)){
@@ -1293,6 +1479,7 @@
       markDirty();
       renderTagPalette();
       renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      renderNotesList();
       if(selectedDate) renderDay(selectedDate);
       closeTaskModal();
     });
@@ -1489,7 +1676,7 @@
             renderCalendar();
             // If the day view is open for this date, re-render it
             if(selectedDate && selectedDate === dateStr) renderDay(selectedDate);
-            renderTasks(); renderKanban(); renderGrid();
+            renderTasks(); renderKanban(); renderGrid(); renderNotesList();
           }
           cell.classList.remove('drag-over');
         });
@@ -1691,7 +1878,7 @@
           markDirty();
           renderDay(dateStr);
           renderCalendar();
-          renderTasks(); renderKanban(); renderGrid();
+          renderTasks(); renderKanban(); renderGrid(); renderNotesList();
         }
         unscheduled.classList.remove('drag-over');
       });
@@ -1765,7 +1952,7 @@
             markDirty();
             renderDay(dateStr);
             renderCalendar();
-            renderTasks(); renderKanban(); renderGrid();
+            renderTasks(); renderKanban(); renderGrid(); renderNotesList();
           }
           cell.classList.remove('drag-over');
         });
@@ -1793,7 +1980,7 @@
             markDirty();
             renderDay(dateStr);
             renderCalendar();
-            renderTasks(); renderKanban(); renderGrid();
+            renderTasks(); renderKanban(); renderGrid(); renderNotesList();
           }
           cell.classList.remove('drag-over');
         });
@@ -1813,7 +2000,7 @@
     document.addEventListener('readystatechange', ()=>{ if(document.readyState==='complete'){ applySharePointCanvasOffsets(); setTimeout(applySharePointCanvasOffsets, 150); setTimeout(applySharePointCanvasOffsets, 400); } });
 
     // ---------- Init ----------
-    function renderAll(){ renderNotes(); syncNotesToTasks(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }
+    function renderAll(){ syncNotesToTasks(); renderNotes(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }
     load(); initTheme(); buildSwatches(); renderAll(); setSaved(true); showView('notes');
   })();
   </script>
