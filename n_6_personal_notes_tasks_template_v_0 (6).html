@@ -288,7 +288,7 @@
       border-radius:6px;
       background:#fff;
       cursor:grab;
-      max-width:100%;
+      max-width:calc(100% - var(--ellipsis-reserve, 0px) - var(--ellipsis-reserve-percent, 0%));
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -805,13 +805,30 @@
       const extraTooltip = extraTooltipRaw == null ? '' : String(extraTooltipRaw);
       const raw = text == null ? '' : String(text);
       const base = raw.trim().length ? raw.trim() : fallback;
+      const reservePxRaw = Number(options.ellipsisReservePx);
+      const ellipsisReservePx = Number.isFinite(reservePxRaw) && reservePxRaw > 0 ? reservePxRaw : 0;
+      const reservePercentRaw = Number(options.ellipsisReservePercent);
+      let ellipsisReservePercent = 0;
+      if(Number.isFinite(reservePercentRaw) && reservePercentRaw > 0){
+        ellipsisReservePercent = Math.min(Math.max(reservePercentRaw, 0), 0.9);
+      }
       el.textContent = base;
       el.dataset.fullTitle = base;
       el.classList.add('truncate-text');
       if(el.tagName === 'SPAN' && el.style.display === ''){
         el.style.display = 'block';
       }
-      const meta = { base, extraTooltip, truncated: false };
+      if(ellipsisReservePx){
+        el.style.setProperty('--ellipsis-reserve', `${ellipsisReservePx}px`);
+      } else {
+        el.style.removeProperty('--ellipsis-reserve');
+      }
+      if(ellipsisReservePercent){
+        el.style.setProperty('--ellipsis-reserve-percent', `${ellipsisReservePercent * 100}%`);
+      } else {
+        el.style.removeProperty('--ellipsis-reserve-percent');
+      }
+      const meta = { base, extraTooltip, truncated: false, ellipsisReservePx, ellipsisReservePercent };
       el._truncateMeta = meta;
       ensureTruncateObserver().observe(el);
       scheduleTruncateUpdate(el);
@@ -1736,7 +1753,7 @@
             const mm = dt.getMinutes().toString().padStart(2,'0');
             displayTitle = displayTitle ? `${displayTitle} (${hh}:${mm})` : `(${hh}:${mm})`;
           }
-          applyTruncatedTitle(taskDiv, displayTitle, { extraTooltip: t.details });
+          applyTruncatedTitle(taskDiv, displayTitle, { extraTooltip: t.details, ellipsisReservePercent: 0.18 });
           taskDiv.draggable = true;
           taskDiv.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
