@@ -1,0 +1,1520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>N6 — Personal Notes & Tasks (Template)</title>
+  <meta name="color-scheme" content="light"/>
+  <style>
+    :root{
+      /* Palette (inspired by CFOE/TFI) */
+      --bg:#f7f9fc; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+      --brand1:#ff8a00; --brand2:#ff6a00; /* theme, changed via picker */
+      --header-fill: linear-gradient(90deg, var(--brand1), var(--brand2));
+      --head-tint: rgba(255, 138, 0, 0.12);
+      --head-tint-border: rgba(255, 138, 0, 0.4);
+      --finish-pill-bg: rgba(255,138,0,.16);
+      --finish-pill-border: rgba(255,138,0,.4);
+      --finish-pill-text:#b45309;
+      /* SharePoint mobile canvas offsets */
+      --sp-mobile-gutter:1px; --sp-left-offset:0px; --sp-right-offset:0px;
+      /* Kanban */
+      --kanban-col:#f8fafc; --kanban-drop:#eef2ff;
+      /* Table */
+      --thead-bg:#f2f4f8; --thead-text:#475569;
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%}
+    body{font:14px system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    a{color:#2563eb;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{width:100%;margin:0 auto;max-width:980px;padding:16px}
+
+    /* --- Tab bar with status chips + gear --- */
+    .tab-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 0 8px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 6px 12px rgba(15,23,42,.08)}
+    .tab-buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .tab-buttons button{border:1px solid var(--line);border-radius:12px;padding:6px 14px;background:#fff;font-weight:600;color:#334155;cursor:pointer}
+    .tab-buttons button.active{background:var(--header-fill);color:#fff;border-color:transparent}
+    .tab-select{display:none;padding:6px 32px 6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    #controlBtns{margin-left:auto;display:flex;align-items:center;gap:8px}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:700;color:var(--muted)}
+    .chip.ok{color:#166534;background:rgba(16,185,129,.14);border-color:rgba(22,163,74,.45)}
+    .chip.warn{color:#92400e;background:rgba(252,211,77,.18);border-color:rgba(202,138,4,.45)}
+    .gear{width:32px;height:32px;border:none;border-radius:8px;background:var(--header-fill);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.12)}
+    .theme-picker{position:absolute;right:calc(8px + env(safe-area-inset-right,0px));top:54px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 12px rgba(15,23,42,.1);padding:12px;min-width:170px;display:none;z-index:1000}
+    .theme-picker h5{margin:0 0 8px;font-size:12px;color:var(--muted)}
+    .swatches{display:flex;gap:8px;flex-wrap:wrap}
+    .swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);cursor:pointer}
+    .swatch.active{box-shadow:0 0 0 3px var(--head-tint-border);border-color:var(--brand2)}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:600;cursor:pointer}
+    .btn.primary{background:var(--header-fill);color:#fff;border-color:transparent}
+    .btn.ghost{background:#fff;color:var(--brand1)}
+    .pill{display:inline-block;padding:2px 6px;border-radius:999px;font-size:11px;border:1px solid var(--line);background:#f2f4f8;color:var(--ink)}
+
+    /* Cards/heads (CFOE style) */
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,.05);margin:0 0 12px}
+    .card-head{padding:12px;background:var(--head-tint);border-bottom:1px solid var(--head-tint-border);font-weight:700;color:#334155;border-radius:14px 14px 0 0}
+    .card-body{padding:12px}
+
+    /* Notes (markdown-ish) */
+    .notes-wrap{display:grid;gap:12px;grid-template-columns:1fr}
+    /* Note list items styling */
+    .note-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:14px;color:var(--ink);}
+    /* Larger checkboxes and bullet icons for better usability */
+    .note-item.note-check input[type="checkbox"]{margin-right:8px;width:18px;height:18px;cursor:pointer;}
+    .note-item.note-bullet .bullet-icon{font-size:18px;line-height:1; color:var(--ink);}
+    /* When a checklist item is completed, strike it through and mute its colour */
+    .note-item.note-check.done span{ text-decoration: line-through; color: var(--ink-light); }
+    .bullet-icon{font-size:10px;color:var(--muted);margin-right:8px;}
+    textarea{width:100%;min-height:220px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink);resize:vertical}
+    .preview{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:220px;overflow:auto}
+    .preview h1,.preview h2,.preview h3{margin:6px 0}
+    .preview ul{padding-left:20px}
+    .preview input[type="checkbox"]{transform:translateY(1px)}
+
+    /* Styling for the interactive checklist list on the notes page */
+    .notes-list{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px;
+      background:#fff;
+      min-height:120px;
+    }
+
+    /* Override default note item styles to create a modern checklist with circular checkboxes and drag support */
+    .note-item{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:16px;color:var(--ink);cursor:grab;}
+    .note-item.note-check input[type="checkbox"]{
+      appearance:none;
+      -webkit-appearance:none;
+      width:22px;height:22px;
+      border:2px solid var(--line);
+      border-radius:50%;
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      margin-right:12px;
+      cursor:pointer;
+    }
+    .note-item.note-check input[type="checkbox"]::after{
+      content:'';
+      position:absolute;
+      width:12px;height:12px;
+      border-radius:50%;
+      background:var(--brand1);
+      opacity:0;
+      transition:opacity .15s;
+    }
+    .note-item.note-check input[type="checkbox"]:checked::after{
+      opacity:1;
+    }
+    .note-item.note-check.done span{
+      text-decoration:line-through;
+      color:var(--ink-light);
+    }
+    .note-item.drag-over{
+      background: var(--head-tint-border);
+    }
+
+    /* Modal overlay for editing items from the checklist */
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);z-index:2000;}
+    .modal-card{width:100%;max-width:420px;}
+
+    /* Tasks */
+    .row{display:grid;gap:12px}
+    .row-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .field label{display:block;margin-bottom:4px;font-size:12px;font-weight:700;color:#475569}
+    .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .tag-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
+    .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
+    .task-list{display:grid;gap:10px}
+    .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+    .task-title{font-weight:700}
+    .subtle{color:var(--muted);font-size:12px}
+    .checklist{margin:6px 0 0;padding-left:22px}
+
+    /* Kanban */
+    .kanban{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+    .col{background:var(--kanban-col);border:1px solid var(--line);border-radius:12px;min-height:240px;display:flex;flex-direction:column}
+    .col-head{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700}
+    .col-body{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
+    .drag-over{outline:2px dashed #93c5fd;background:var(--kanban-drop)}
+    .kb-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:grab}
+
+    /* Table */
+    .grid{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+    table{width:100%;border-collapse:collapse}
+    thead th{position:sticky;top:0;background:var(--thead-bg);color:var(--thead-text);font-size:12px;font-weight:700;border-bottom:1px solid var(--line);text-align:left;padding:8px;white-space:nowrap;cursor:pointer}
+    tbody td{border-bottom:1px solid var(--line);padding:0}
+    .cell{padding:8px 10px;outline:none}
+    .cell[contenteditable="true"]{min-width:80px;display:block}
+    .row-selected td{background:rgba(59,130,246,.06)}
+    .sort-asc::after{content:" \25B2";font-size:10px}
+    .sort-desc::after{content:" \25BC";font-size:10px}
+
+    /* Calendar */
+    .calendar-grid{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .calendar-grid .day-of-week{
+      background:var(--thead-bg);
+      color:var(--thead-text);
+      font-weight:700;
+      text-align:center;
+      padding:4px;
+      border-bottom:1px solid var(--line);
+    }
+    .calendar-cell{
+      min-height:100px;
+      border-right:1px solid var(--line);
+      border-bottom:1px solid var(--line);
+      padding:4px;
+      position:relative;
+      cursor:pointer;
+    }
+    .calendar-cell:last-child{border-right:none;}
+    .calendar-cell .date-num{
+      font-size:12px;
+      font-weight:700;
+      color:var(--muted);
+    }
+    .calendar-task{
+      font-size:12px;
+      margin:2px 0;
+      padding:2px 4px;
+      border:1px solid var(--line);
+      border-radius:6px;
+      background:#fff;
+      cursor:grab;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .calendar-cell.drag-over{
+      background:var(--kanban-drop);
+    }
+
+    /* Day (My Day) */
+    .day-unscheduled{
+      margin-bottom:8px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-height:40px;
+      border:1px dashed var(--line);
+      border-radius:8px;
+      padding:4px;
+    }
+    .day-grid{
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .day-slot{
+      display:flex;
+      align-items:flex-start;
+      gap:4px;
+      padding:2px 4px;
+      border-bottom:1px solid var(--line);
+      min-height:36px;
+    }
+    .day-slot:last-child{border-bottom:none;}
+    .day-time{
+      width:50px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .day-cell{
+      flex:1;
+      min-height:28px;
+      border:1px dashed transparent;
+      border-radius:6px;
+      padding:2px;
+    }
+    .day-cell.drag-over{
+      border-color:var(--kanban-drop);
+      background:var(--kanban-drop);
+    }
+
+    /* Responsive (SharePoint mobile safe-area aware) */
+    @media (max-width: 900px){ .row-3{grid-template-columns:1fr} }
+    @media (max-width: 700px){ .notes-wrap{grid-template-columns:1fr} }
+    @media (max-width: 600px){
+      .wrap{width:calc(100% + var(--sp-left-offset,0px) + var(--sp-right-offset,0px));padding-left:max(var(--sp-mobile-gutter),env(safe-area-inset-left,0px));padding-right:max(var(--sp-mobile-gutter),env(safe-area-inset-right,0px));margin-left:calc(-1 * var(--sp-left-offset,0px));margin-right:calc(-1 * var(--sp-right-offset,0px))}
+      .tab-buttons{display:none}
+      .tab-select{display:block;flex:1 1 160px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tab-bar">
+      <div class="tab-buttons">
+        <button data-view="notes" class="active">Notes</button>
+        <button data-view="tasks">Tasks</button>
+        <button data-view="kanban">Kanban</button>
+        <button data-view="table">Table</button>
+        <button data-view="calendar">Calendar</button>
+        <button data-view="day">My Day</button>
+      </div>
+      <select class="tab-select" id="tabSelect" aria-label="Navigate">
+        <option value="notes">Notes</option>
+        <option value="tasks">Tasks</option>
+        <option value="kanban">Kanban</option>
+        <option value="table">Table</option>
+        <option value="calendar">Calendar</option>
+        <option value="day">My Day</option>
+      </select>
+      <div id="controlBtns">
+        <span class="chip ok" id="chipSave"><span class="dot"></span><span>Saved</span></span>
+        <button class="gear" id="btnThemePicker" title="Theme & tools">⚙️</button>
+      </div>
+      <div class="theme-picker" id="themePicker" role="dialog" aria-modal="false">
+        <h5>Colour theme</h5>
+        <div class="swatches" id="swatches"></div>
+        <div class="toolbar" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+          <button class="btn" id="btnExportJson">Export JSON</button>
+          <button class="btn" id="btnImportJson">Import JSON</button>
+          <input type="file" id="importFile" accept="application/json" style="display:none"/>
+        </div>
+        <!-- Future: SharePoint exports (commented out scaffolding) -->
+        <!--
+        <div class="toolbar" style="border-top:1px solid var(--line);padding-top:10px">
+          <button class="btn ghost" id="btnPushList">Push to SP List</button>
+          <button class="btn ghost" id="btnUploadLibrary">Upload to SP Library</button>
+        </div>
+        -->
+      </div>
+    </div>
+
+    <!-- NOTES VIEW -->
+    <section id="view-notes" class="card">
+      <div class="card-body">
+        <!-- Input area for adding new checklist items -->
+        <div class="toolbar" style="margin-bottom:8px;">
+          <input id="newItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+          <button class="btn" id="btnAddNoteItem">Add</button>
+        </div>
+        <!-- Hidden textarea to store checklist items (kept for compatibility with internal logic) -->
+        <textarea id="notesInput" style="display:none"></textarea>
+        <!-- Container for interactive checklist items -->
+        <div class="notes-list" id="notesPreview" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- TASKS VIEW -->
+    <section id="view-tasks" class="card" style="display:none">
+      <div class="card-head">Tasks</div>
+      <div class="card-body">
+        <div class="row row-3">
+          <div class="field"><label>Title</label><input id="taskTitle"></div>
+          <div class="field"><label>Status</label>
+            <select id="taskStatus">
+              <option value="backlog">Backlog</option>
+              <option value="doing">Doing</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="field"><label>Priority</label>
+            <select id="taskPriority">
+              <option value="1">P1</option>
+              <option value="2" selected>P2</option>
+              <option value="3">P3</option>
+            </select>
+          </div>
+        </div>
+        <!-- Due date input -->
+        <div class="row" style="margin-top:8px">
+          <div class="field"><label>Due Date</label><input type="date" id="taskDueDate"></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="field"><label>Tags (toggle to select)</label>
+            <div class="tag-chips" id="tagPalette"></div>
+            <div class="toolbar">
+              <input id="newTagInput" class="btn" placeholder="New tag name" style="padding:6px 10px"/>
+              <button class="btn" id="btnAddTag">Add Tag</button>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Checklist</label>
+            <div class="toolbar">
+              <input id="checkItem" class="btn" placeholder="Add checklist item" style="padding:6px 10px"/>
+              <button class="btn" id="btnAddCheck">Add</button>
+            </div>
+            <ul id="checklist" class="checklist"></ul>
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" id="btnAddTask">Add Task</button>
+          <span class="subtle" id="taskCount"></span>
+          <button class="btn" id="btnClearAll" style="margin-left:auto">Clear All</button>
+        </div>
+        <div class="task-list" id="taskList" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <!-- KANBAN VIEW -->
+    <section id="view-kanban" class="card" style="display:none">
+      <div class="card-head">Kanban</div>
+      <div class="card-body">
+        <div class="kanban" id="kanban"></div>
+      </div>
+    </section>
+
+    <!-- TABLE VIEW -->
+    <section id="view-table" class="card" style="display:none">
+      <div class="card-head">Table (Excel‑like)</div>
+      <div class="card-body">
+        <div class="grid">
+          <table id="taskTable">
+            <thead>
+              <tr>
+                <th data-key="title">Title</th>
+                <th data-key="status">Status</th>
+                <th data-key="priority">Priority</th>
+                <th data-key="dueDate">Due</th>
+                <th data-key="tags">Tags</th>
+                <th data-key="createdAt">Created</th>
+              </tr>
+            </thead>
+            <tbody id="gridBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALENDAR VIEW -->
+    <section id="view-calendar" class="card" style="display:none">
+      <div class="card-head">Calendar</div>
+      <div class="card-body">
+        <div class="toolbar" style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+          <button class="btn" id="prevMonthBtn">&lt;</button>
+          <div id="calendarMonthLabel" style="font-weight:700"></div>
+          <button class="btn" id="nextMonthBtn">&gt;</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid" aria-label="Calendar"></div>
+      </div>
+    </section>
+
+    <!-- DAY VIEW (My Day) -->
+    <section id="view-day" class="card" style="display:none">
+      <div class="card-head"><span id="dayLabel">My Day</span></div>
+      <div class="card-body">
+        <div style="margin-bottom:8px;font-weight:600;">Unscheduled tasks</div>
+        <div id="dayUnscheduled" class="day-unscheduled"></div>
+        <div class="day-grid" id="dayGrid" aria-label="Day schedule"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal for editing items (status, priority, tags) -->
+  <div id="taskModal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-card card">
+      <div class="card-head">Edit Item</div>
+      <div class="card-body">
+        <div class="field"><label>Status</label>
+          <select id="modalStatusSelect">
+            <option value="backlog">Backlog</option>
+            <option value="doing">Doing</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="field"><label>Priority</label>
+          <select id="modalPrioritySelect">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3">P3</option>
+          </select>
+        </div>
+        <div class="field"><label>Due Date</label>
+          <input type="date" id="modalDueDate"/>
+        </div>
+        <div class="field"><label>Tags</label>
+          <div id="modalTagContainer" class="tag-chips"></div>
+          <div class="toolbar">
+            <input id="modalNewTagInput" class="btn" placeholder="New tag name" style="padding:6px 10px"/>
+            <button class="btn" id="modalAddTag">Add Tag</button>
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:12px">
+          <button id="modalSaveBtn" class="btn primary">Save</button>
+          <button id="modalCancelBtn" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // ---------- Theme (CFOE/TFI style) ----------
+    const THEMES = [
+      { key:'regal',   name:'Regal',   colors:['#ff8a00','#ff6a00'] },
+      { key:'ocean',   name:'Ocean',   colors:['#0ea5e9','#3b82f6'] },
+      { key:'royal',   name:'Royal',   colors:['#8b5cf6','#7c3aed'] },
+      { key:'emerald', name:'Emerald', colors:['#10b981','#22c55e'] }
+    ];
+    function hexToRgb(hex){ let h=hex.replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
+    function applyTheme(key){ const t=THEMES.find(x=>x.key===key)||THEMES[0]; const root=document.documentElement; root.style.setProperty('--brand1', t.colors[0]); root.style.setProperty('--brand2', t.colors[1]); root.style.setProperty('--header-fill', `linear-gradient(90deg, ${t.colors[0]}, ${t.colors[1]})`); const rgb=hexToRgb(t.colors[0]); root.style.setProperty('--head-tint',`rgba(${rgb.r},${rgb.g},${rgb.b},0.12)`); root.style.setProperty('--head-tint-border',`rgba(${rgb.r},${rgb.g},${rgb.b},0.4)`); try{localStorage.setItem('n6-theme', t.key);}catch(e){} updateSwatches(t.key); }
+    function initTheme(){ let stored=null; try{stored=localStorage.getItem('n6-theme')}catch(e){} applyTheme(stored||'regal'); document.getElementById('btnThemePicker').style.background = getComputedStyle(document.documentElement).getPropertyValue('--header-fill')||'linear-gradient(90deg,#ff8a00,#ff6a00)'; }
+    function buildSwatches(){ const wrap=document.getElementById('swatches'); wrap.innerHTML=''; THEMES.forEach(t=>{ const s=document.createElement('div'); s.className='swatch'; s.style.background=`linear-gradient(90deg, ${t.colors[0]}, ${t.colors[1]})`; s.dataset.theme=t.key; s.title=t.name; s.addEventListener('click',e=>{ applyTheme(t.key); hidePicker(); }); wrap.appendChild(s); }); updateSwatches(); }
+    function updateSwatches(active){ document.querySelectorAll('.swatch').forEach(el=>{ el.classList.toggle('active', el.dataset.theme === (active||localStorage.getItem('n6-theme')||'regal')); }); }
+    const picker=document.getElementById('themePicker'); function showPicker(){ picker.style.display='block'; } function hidePicker(){ picker.style.display='none'; }
+    document.getElementById('btnThemePicker').addEventListener('click', (e)=>{ e.stopPropagation(); picker.style.display === 'block' ? hidePicker() : showPicker(); });
+    document.addEventListener('click', (e)=>{ if(picker.style.display==='block'){ const within = picker.contains(e.target) || e.target.id==='btnThemePicker'; if(!within) hidePicker(); } });
+
+    // ---------- State ----------
+    const LSKEY='n6-notes-tasks-v1';
+    let state=null, unsynced=false;
+    // Track the index of the note item currently being dragged for reordering
+    let dragNoteIndex = null;
+    const defaultState = ()=>({
+      notes:'',
+      tags:['Work','Home','Urgent'],
+      tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
+      settings:{theme:'regal'}
+    });
+    function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
+    function load(){ try{ const raw=localStorage.getItem(LSKEY); state = raw? JSON.parse(raw): defaultState(); }catch(e){ state=defaultState(); } if(!Array.isArray(state.tags)) state.tags=[]; if(!Array.isArray(state.tasks)) state.tasks=[]; }
+    function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
+    function markDirty(){ setSaved(false); save(); }
+
+    // ---------- Router ----------
+    // Extend views to include calendar and day
+    const views={
+      notes: document.getElementById('view-notes'),
+      tasks: document.getElementById('view-tasks'),
+      kanban: document.getElementById('view-kanban'),
+      table: document.getElementById('view-table'),
+      calendar: document.getElementById('view-calendar'),
+      day: document.getElementById('view-day')
+    };
+    // selectedDate for day view
+    let selectedDate = null;
+    function showView(id){
+      Object.keys(views).forEach(k=> views[k].style.display = k===id? '':'none');
+      document.querySelectorAll('.tab-buttons button').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
+      document.getElementById('tabSelect').value = id;
+      if(id==='kanban'){ renderKanban(); }
+      if(id==='table'){ renderGrid(); }
+      if(id==='tasks'){ renderTagPalette(); renderTasks(); }
+      if(id==='notes'){ renderNotes(); }
+      if(id==='calendar'){ renderCalendar(); }
+      if(id==='day'){
+        // Default to today if no date selected
+        if(!selectedDate){
+          const today=new Date();
+          selectedDate = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+        }
+        renderDay(selectedDate);
+      }
+    }
+    document.querySelectorAll('.tab-buttons button').forEach(b=> b.addEventListener('click', ()=>showView(b.dataset.view)) );
+    document.getElementById('tabSelect').addEventListener('change', (e)=>showView(e.target.value));
+
+    // ---------- Notes ----------
+    const notesInput = document.getElementById('notesInput'); const notesPreview = document.getElementById('notesPreview');
+    function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function md(mini){
+      let s = String(mini||'');
+      // headings #, ##, ###
+      s = s.replace(/^###\s*(.*)$/gm,'<h3>$1</h3>').replace(/^##\s*(.*)$/gm,'<h2>$1</h2>').replace(/^#\s*(.*)$/gm,'<h1>$1</h1>');
+      // bold **text**
+      s = s.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+      // checklist - [ ] item / - [x] item
+      s = s.replace(/^- \[ \] (.*)$/gm,'<div><label><input type="checkbox" disabled> $1</label></div>');
+      s = s.replace(/^- \[x\] (.*)$/gmi,'<div><label><input type="checkbox" checked disabled> $1</label></div>');
+      // bullets - item
+      // First convert remaining "- " lines to <li>
+      const UL_TOKEN = '___ULTOKEN___';
+      s = s.replace(/^(?:- (.*)(?:\n|$))+?/gm, (m)=>{
+        const items = m.trim().split(/\n/).map(line=> line.replace(/^-\s+/, '').trim()).filter(Boolean);
+        if(!items.length) return m;
+        return UL_TOKEN + items.map(it=>`<li>${esc(it)}</li>`).join('\n') + UL_TOKEN;
+      });
+      s = esc(s);
+      // revert tokens into <ul>
+      s = s.replace(new RegExp(UL_TOKEN,'g'),'</ul>').replace(/<\/ul><li/g,'<ul><li');
+      // finally clean double </ul>
+      return s;
+    }
+    // Build interactive list of notes as a sortable checklist
+    function renderNotesList(){
+      const lines = String(state.notes||'').split(/\r?\n/);
+      notesPreview.innerHTML = '';
+      lines.forEach((raw, idx) => {
+        if(!raw || /^\s*$/.test(raw)) return;
+        // Determine whether the item is checked
+        let match = raw.match(/^\s*-\s*\[( |x|X)\]\s+(.*)$/);
+        let done = false;
+        let text = '';
+        if(match){
+          done = (match[1] || ' ').toLowerCase() === 'x';
+          text = (match[2] || '').trim();
+        } else {
+          match = raw.match(/^\s*-\s*(.*)$/);
+          text = match ? (match[1] || '').trim() : raw.trim();
+        }
+        if(!text) return;
+        const div = document.createElement('div');
+        div.className = 'note-item note-check';
+        div.draggable = true;
+        div.dataset.lineIndex = idx;
+        // Determine unique key for mapping to task
+        const noteKey = 'notes:' + text.toLowerCase();
+        div.dataset.noteKey = noteKey;
+        if(done) div.classList.add('done');
+        // Checkbox element: clicking marks complete
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = done;
+        checkbox.dataset.lineIndex = idx;
+        checkbox.addEventListener('change', (e) => {
+          const i = parseInt(e.target.dataset.lineIndex, 10);
+          const arr = String(state.notes||'').split(/\r?\n/);
+          const line = arr[i] || '';
+          // Replace existing prefix or add one if absent
+          if(/^\s*-\s*\[(?: |x|X)\]/.test(line)){
+            arr[i] = line.replace(/^\s*-\s*\[(?: |x|X)\]/, '- ' + (e.target.checked ? '[x]' : '[ ]'));
+          } else if (/^\s*-\s*/.test(line)) {
+            arr[i] = '- ' + (e.target.checked ? '[x]' : '[ ]') + line.replace(/^\s*-\s*/, ' ');
+          } else {
+            arr[i] = '- ' + (e.target.checked ? '[x] ' : '[ ] ') + line;
+          }
+          state.notes = arr.join('\n');
+          notesInput.value = state.notes;
+          syncNotesToTasks();
+          markDirty();
+          renderNotesList();
+          renderTasks(); renderKanban(); renderGrid();
+        });
+        const span = document.createElement('span');
+        span.className = 'note-text';
+        span.textContent = text;
+        span.addEventListener('click', (e) => {
+          // Only open modal on left click
+          openTaskModalByKey(noteKey);
+        });
+        // Compose item
+        div.appendChild(checkbox);
+        div.appendChild(span);
+        // Drag-and-drop handlers
+        div.addEventListener('dragstart', (e) => {
+          dragNoteIndex = idx;
+        });
+        div.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          div.classList.add('drag-over');
+        });
+        div.addEventListener('dragleave', (e) => {
+          div.classList.remove('drag-over');
+        });
+        div.addEventListener('drop', (e) => {
+          e.preventDefault();
+          div.classList.remove('drag-over');
+          const from = dragNoteIndex;
+          const to = parseInt(div.dataset.lineIndex, 10);
+          if(isNaN(from) || isNaN(to) || from === to) return;
+          const arr = String(state.notes||'').split(/\r?\n/);
+          const [moved] = arr.splice(from, 1);
+          arr.splice(to, 0, moved);
+          state.notes = arr.join('\n');
+          notesInput.value = state.notes;
+          syncNotesToTasks();
+          markDirty();
+          renderNotesList();
+          renderTasks(); renderKanban(); renderGrid();
+        });
+        notesPreview.appendChild(div);
+      });
+    }
+
+    function renderNotes(){ notesInput.value = state.notes||''; renderNotesList(); }
+    // When notes text changes, update state, sync tasks, and refresh views
+    notesInput.addEventListener('input', ()=>{
+      state.notes = notesInput.value;
+      syncNotesToTasks();
+      markDirty();
+      renderNotesList();
+      renderTasks(); renderKanban(); renderGrid();
+    });
+    // Add new checklist items via input and button
+    const newItemInput = document.getElementById('newItemInput');
+    const btnAddNoteItem = document.getElementById('btnAddNoteItem');
+    btnAddNoteItem.addEventListener('click', () => {
+      const text = (newItemInput.value || '').trim();
+      if(!text) return;
+      const arr = String(state.notes || '').split(/\r?\n/).filter(l => l && !/^\s*$/.test(l));
+      arr.push('- [ ] ' + text);
+      state.notes = arr.join('\n');
+      notesInput.value = state.notes;
+      newItemInput.value = '';
+      syncNotesToTasks();
+      markDirty();
+      renderNotesList();
+      renderTasks(); renderKanban(); renderGrid();
+    });
+    newItemInput.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        btnAddNoteItem.click();
+      }
+    });
+    function insertAtCursor(el, str){ const s=el.selectionStart||0, e=el.selectionEnd||0, v=el.value; el.value = v.slice(0,s) + str + v.slice(e); el.focus(); const pos = s + str.length; el.setSelectionRange(pos,pos); }
+
+    // Auto-continue checklist items on Enter: always add '- [ ] ' prefix when continuing a list
+    notesInput.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const start = notesInput.selectionStart|0, end = notesInput.selectionEnd|0;
+      if (start !== end) return;
+      const v = notesInput.value; const before = v.slice(0, start);
+      const lineStart = before.lastIndexOf('\n') + 1;
+      const line = v.slice(lineStart, start);
+      // Determine if current line is part of a list (starts with '- ' optionally followed by [ ] or [x])
+      const listMatch = /^\s*-\s*(\[(?: |x|X)\])?/.test(line);
+      if (!listMatch) return;
+      e.preventDefault();
+      // Determine if only the prefix exists and no text after
+      const stripped = line.replace(/^\s*-\s*/, '').trim();
+      const onlyPrefix = stripped === '' || /^\[(?: |x|X)\]\s*$/.test(stripped);
+      if (onlyPrefix) {
+        const newVal = v.slice(0, lineStart) + v.slice(start);
+        notesInput.value = newVal;
+        notesInput.setSelectionRange(lineStart, lineStart);
+        notesInput.dispatchEvent(new Event('input'));
+        return;
+      }
+      const insert = '\n- [ ] ';
+      const newVal = v.slice(0, start) + insert + v.slice(start);
+      const pos = start + insert.length;
+      notesInput.value = newVal;
+      notesInput.setSelectionRange(pos, pos);
+      notesInput.dispatchEvent(new Event('input'));
+    });
+
+    // Parse note lines into items (bullets and checklists)
+    function parseNoteItems(text){
+      const out = [];
+      const lines = String(text||'').split(/\r?\n/);
+      lines.forEach(raw => {
+        // Recognize checklist items (with [ ] or [x])
+        let m = raw.match(/^\s*-\s*\[( |x|X)\]\s+(.*)$/);
+        if (m) {
+          const done = (m[1] || ' ').toLowerCase() === 'x';
+          const t = (m[2] || '').trim();
+          if (t) out.push({ type: 'check', text: t, done });
+          return;
+        }
+        // Treat any line starting with a dash as an unchecked checklist item
+        m = raw.match(/^\s*-\s*(.*)$/);
+        if (m) {
+          const t = (m[1] || '').trim();
+          if (t) out.push({ type: 'check', text: t, done: false });
+          return;
+        }
+      });
+      return out;
+    }
+
+    // Format a timestamp (ms) into YYYY-MM-DD string
+    function formatDate(ts){
+      if(!ts) return '';
+      const dt = new Date(ts);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // Sync notes into uncategorized tasks (from notes)
+    function syncNotesToTasks(){
+      const items = parseNoteItems(state.notes);
+      const oldNotes = state.tasks.filter(t => t.fromNotes);
+      const mapOld = new Map(oldNotes.map(t => [t.noteKey, t]));
+      const next = [];
+      items.forEach(it => {
+        const key = 'notes:' + it.text.toLowerCase();
+        const prev = mapOld.get(key);
+        next.push({
+          id: prev?.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+          title: it.text,
+          status: it.done ? 'done' : (prev?.status || 'backlog'),
+          priority: prev?.priority ?? 2,
+          tags: Array.isArray(prev?.tags) ? prev.tags : [],
+          checklist: [],
+          createdAt: prev?.createdAt || Date.now(),
+          dueDate: prev?.dueDate ?? null,
+          startTime: prev?.startTime ?? null,
+          fromNotes: true,
+          noteKey: key
+        });
+      });
+      const manual = state.tasks.filter(t => !t.fromNotes);
+      state.tasks = next.concat(manual);
+    }
+
+    // ---------- Tags ----------
+    const tagPaletteEl = document.getElementById('tagPalette'); const newTagInput=document.getElementById('newTagInput');
+    function renderTagPalette(selected=[]) {
+      tagPaletteEl.innerHTML='';
+      state.tags.forEach(t=>{
+        const chip=document.createElement('button'); chip.type='button'; chip.className='chip-tag'; chip.textContent=t; chip.dataset.tag=t; if(selected.includes(t)) chip.classList.add('selected');
+        chip.addEventListener('click',()=>{ chip.classList.toggle('selected'); });
+        tagPaletteEl.appendChild(chip);
+      });
+    }
+    document.getElementById('btnAddTag').addEventListener('click', ()=>{ const name=(newTagInput.value||'').trim(); if(!name) return; if(!state.tags.includes(name)) state.tags.push(name); newTagInput.value=''; markDirty(); renderTagPalette(); });
+
+    // ---------- Tasks list / create ----------
+    const taskListEl = document.getElementById('taskList');
+    const checkUl = document.getElementById('checklist');
+    function getSelectedTags(){ return Array.from(tagPaletteEl.querySelectorAll('.chip-tag.selected')).map(el=>el.dataset.tag); }
+    function addChecklistItem(text){ const li=document.createElement('li'); const id='c_'+Math.random().toString(36).slice(2); li.innerHTML = `<label><input type="checkbox" data-id="${id}"> <span>${esc(text)}</span></label>`; checkUl.appendChild(li); }
+    document.getElementById('btnAddCheck').addEventListener('click', ()=>{ const t=document.getElementById('checkItem').value.trim(); if(!t) return; addChecklistItem(t); document.getElementById('checkItem').value=''; });
+
+    document.getElementById('btnAddTask').addEventListener('click', ()=>{
+      const title=(document.getElementById('taskTitle').value||'').trim(); if(!title){ alert('Enter a title'); return; }
+      const status=document.getElementById('taskStatus').value;
+      const priority=Number(document.getElementById('taskPriority').value)||2;
+      const dueInput = document.getElementById('taskDueDate');
+      const dueVal = (dueInput && dueInput.value) ? dueInput.value : '';
+      const dueDate = dueVal? new Date(dueVal).getTime() : null;
+      const tags=getSelectedTags();
+      const checklist = Array.from(checkUl.querySelectorAll('input[type="checkbox"]')).map(cb=>({ t: cb.nextElementSibling.textContent, done: cb.checked }));
+      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null };
+      state.tasks.unshift(task);
+      // reset form
+      document.getElementById('taskTitle').value='';
+      // reset due date input if exists
+      if(dueInput) dueInput.value = '';
+      document.getElementById('checkItem').value='';
+      checkUl.innerHTML='';
+      tagPaletteEl.querySelectorAll('.chip-tag.selected').forEach(x=>x.classList.remove('selected'));
+      markDirty(); renderTasks(); renderKanban(); renderGrid();
+    });
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); }});
+
+    function renderTasks(){
+      document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
+      taskListEl.innerHTML='';
+      // Sort tasks: incomplete first, then completed; sort by due date ascending then createdAt
+      const tasksSorted = state.tasks.slice().sort((a,b) => {
+        const doneA = a.status === 'done' ? 1 : 0;
+        const doneB = b.status === 'done' ? 1 : 0;
+        if(doneA !== doneB) return doneA - doneB;
+        const aDue = a.dueDate ?? Infinity;
+        const bDue = b.dueDate ?? Infinity;
+        if(aDue !== bDue) return aDue - bDue;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      tasksSorted.forEach(t=>{
+        const card=document.createElement('div'); card.className='task-card';
+        const top=document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center';
+        const title=document.createElement('div'); title.className='task-title'; title.textContent=t.title; top.appendChild(title);
+        const meta=document.createElement('div'); meta.className='subtle';
+        let metaText = `${t.status} • P${t.priority}`;
+        if(t.dueDate){
+          metaText += ' • Due ' + formatDate(t.dueDate);
+          if(t.startTime){
+            const dt=new Date(t.startTime);
+            const hh=dt.getHours().toString().padStart(2,'0');
+            const mm=dt.getMinutes().toString().padStart(2,'0');
+            metaText += ' ' + hh + ':' + mm;
+          }
+        }
+        meta.textContent = metaText; top.appendChild(meta);
+        card.appendChild(top);
+        if(t.tags && t.tags.length){ const row=document.createElement('div'); row.className='tag-chips'; row.style.marginTop='6px'; t.tags.forEach(tag=>{ const pill=document.createElement('span'); pill.className='pill'; pill.textContent=tag; row.appendChild(pill); }); card.appendChild(row); }
+        if(t.checklist && t.checklist.length){ const ul=document.createElement('ul'); ul.className='checklist'; t.checklist.forEach((c,i)=>{ const li=document.createElement('li'); li.innerHTML=`<label><input type="checkbox" ${c.done?'checked':''}> ${esc(c.t)}</label>`; li.querySelector('input').addEventListener('change', (e)=>{ c.done=e.target.checked; markDirty(); }); ul.appendChild(li); }); card.appendChild(ul); }
+        // Clicking on the card (except buttons/selects) opens the edit modal for this task
+        card.addEventListener('click', (ev) => {
+          // don't trigger if clicking delete button or status select
+          if(ev.target.closest('button') || ev.target.closest('select')) return;
+          openTaskModalForId(t.id);
+        });
+        const bar=document.createElement('div'); bar.className='toolbar';
+        const del=document.createElement('button'); del.className='btn'; del.textContent='Delete';
+        del.addEventListener('click', ()=>{
+          // If task came from notes, remove corresponding note line
+          if(t.fromNotes){
+            const arr = String(state.notes||'').split(/\r?\n/);
+            const target = (t.title||'').trim().toLowerCase();
+            const idx = arr.findIndex(line => {
+              // Remove checkbox prefix and dash prefix
+              const clean = line.replace(/^\s*-\s*\[(?: |x|X)\]\s*/, '').replace(/^\s*-\s*/, '').trim().toLowerCase();
+              return clean === target;
+            });
+            if(idx >= 0){
+              arr.splice(idx, 1);
+              state.notes = arr.join('\n');
+              notesInput.value = state.notes;
+            }
+          }
+          // Remove from tasks list
+          state.tasks = state.tasks.filter(x=>x.id!==t.id);
+          // Synchronize tasks from notes again
+          syncNotesToTasks();
+          markDirty();
+          renderNotesList();
+          renderTasks(); renderKanban(); renderGrid();
+        });
+        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); });
+        bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
+        taskListEl.appendChild(card);
+      });
+    }
+
+    // ---------- Kanban (drag & drop) ----------
+    function renderKanban(){
+      const root=document.getElementById('kanban'); root.innerHTML='';
+      const lanes=[{k:'backlog', name:'Backlog'},{k:'doing', name:'Doing'},{k:'done', name:'Done'}];
+      lanes.forEach(l=>{
+        const col=document.createElement('div'); col.className='col'; col.dataset.lane=l.k;
+        const head=document.createElement('div'); head.className='col-head'; head.textContent = `${l.name}`; col.appendChild(head);
+        const body=document.createElement('div'); body.className='col-body';
+        body.addEventListener('dragover',(e)=>{ e.preventDefault(); body.classList.add('drag-over'); });
+        body.addEventListener('dragleave',()=> body.classList.remove('drag-over'));
+        body.addEventListener('drop',(e)=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(t){ t.status=l.k; markDirty(); renderKanban(); renderGrid(); renderTasks(); } body.classList.remove('drag-over'); });
+        state.tasks.filter(t=>t.status===l.k).forEach(t=>{
+          const c=document.createElement('div');
+          c.className='kb-card';
+          c.draggable=true;
+          c.addEventListener('dragstart',(e)=>{ e.dataTransfer.setData('text/plain', t.id); });
+          c.innerHTML = `<div style="font-weight:700">${esc(t.title)}</div><div class="subtle">P${t.priority}${t.tags?.length? ' • '+t.tags.join(', '):''}${t.dueDate ? ' • Due '+formatDate(t.dueDate) : ''}</div>`;
+          // Click opens edit modal
+          c.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openTaskModalForId(t.id);
+          });
+          body.appendChild(c);
+        });
+        col.appendChild(body); root.appendChild(col);
+      });
+    }
+
+    // ---------- Table (grid with keyboard navigation) ----------
+    let sortKey='createdAt', sortDir='desc';
+    function renderGrid(){
+      const tbody=document.getElementById('gridBody'); tbody.innerHTML='';
+      const items = state.tasks.slice().sort((a,b)=>{
+        let av=a[sortKey], bv=b[sortKey];
+        if(sortKey==='tags'){ av=(a.tags||[]).join(','); bv=(b.tags||[]).join(','); }
+        if(sortKey==='createdAt'){ av=a.createdAt||0; bv=b.createdAt||0; }
+        if(sortKey==='dueDate'){ av=a.dueDate||0; bv=b.dueDate||0; }
+        if(sortKey==='priority'){ av=Number(av)||0; bv=Number(bv)||0; }
+        av = typeof av==='string'? av.toLowerCase() : av; bv = typeof bv==='string'? bv.toLowerCase() : bv;
+        return sortDir==='asc' ? (av>bv?1:av<bv?-1:0) : (av<bv?1:av>bv?-1:0);
+      });
+      items.forEach((t,rowIdx)=>{
+        const tr=document.createElement('tr'); tr.dataset.id=t.id;
+        const cols=[
+          {k:'title', v:t.title},
+          {k:'status', v:t.status},
+          {k:'priority', v:'P'+(t.priority||'')},
+          {k:'dueDate', v: t.dueDate ? formatDate(t.dueDate) : ''},
+          {k:'tags', v:(t.tags||[]).join(', ')},
+          {k:'createdAt', v:new Date(t.createdAt||Date.now()).toLocaleString()}
+        ];
+        cols.forEach((c,colIdx)=>{
+          const td=document.createElement('td');
+          const ed = (c.k==='createdAt')? false : true; // createdAt is read-only
+          const span=document.createElement('span'); span.className='cell'; span.tabIndex=0; span.dataset.row=rowIdx; span.dataset.col=colIdx; span.dataset.field=c.k; span.textContent=c.v; if(ed) span.setAttribute('contenteditable','true');
+          span.addEventListener('keydown', (e)=>handleCellKey(e, span));
+          span.addEventListener('blur', ()=>commitCell(span, t));
+          td.appendChild(span); tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+        // When clicking anywhere in this row (outside of interactive controls),
+        // open the edit modal for this task. This allows editing from the table view.
+        tr.addEventListener('click', (ev) => {
+          // Avoid triggering if the click originated from an input/select element
+          // or when text selection might be active. Only respond to clicks on cells.
+          if(ev.target && ev.target.closest('span.cell')){
+            openTaskModalForId(t.id);
+          }
+        });
+      });
+      // Header sort indicators
+      document.querySelectorAll('#taskTable thead th').forEach(th=>{ th.classList.remove('sort-asc','sort-desc'); if(th.dataset.key===sortKey) th.classList.add(sortDir==='asc'?'sort-asc':'sort-desc'); });
+    }
+    function commitCell(cell, task){
+      const field = cell.dataset.field;
+      const raw = cell.textContent.trim();
+      if(!field) return;
+      if(field === 'priority'){
+        const p = String(raw).replace(/^[pP]/, '');
+        task.priority = Number(p) || 2;
+      } else if(field === 'tags'){
+        task.tags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
+      } else if(field === 'status'){
+        task.status = raw || 'backlog';
+      } else if(field === 'title'){
+        task.title = raw || '(untitled)';
+      } else if(field === 'dueDate'){
+        // Parse as YYYY-MM-DD (local date). Using Date.parse can shift dates due to UTC conversion.
+        if(raw){
+          const parts = raw.split('-');
+          if(parts.length === 3){
+            const yy = parseInt(parts[0],10);
+            const mm = parseInt(parts[1],10) - 1;
+            const dd = parseInt(parts[2],10);
+            const ts = new Date(yy, mm, dd).getTime();
+            task.dueDate = ts;
+          } else {
+            task.dueDate = null;
+          }
+        } else {
+          task.dueDate = null;
+        }
+      }
+      markDirty();
+      renderKanban();
+      renderTasks();
+    }
+    function handleCellKey(e, cell){ const key=e.key.toLowerCase(); const row=parseInt(cell.dataset.row,10); const col=parseInt(cell.dataset.col,10); const table=document.getElementById('gridBody'); const maxR=table.rows.length-1; const maxC=table.rows[0]? table.rows[0].cells.length-1:0; const move=(r,c)=>{ const next = table.querySelector(`span.cell[data-row="${r}"][data-col="${c}"]`); if(next){ e.preventDefault(); next.focus(); selectAll(next); } };
+      if(key==='arrowright'){ move(row, Math.min(maxC, col+1)); }
+      else if(key==='arrowleft'){ move(row, Math.max(0, col-1)); }
+      else if(key==='arrowdown'){ move(Math.min(maxR,row+1), col); }
+      else if(key==='arrowup'){ move(Math.max(0,row-1), col); }
+      else if(key==='tab'){ move(row, Math.min(maxC, col+(e.shiftKey?-1:1))); }
+      else if(key==='enter'){ move(Math.min(maxR,row+1), col); }
+    }
+    function selectAll(el){ const range=document.createRange(); range.selectNodeContents(el); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+    document.querySelectorAll('#taskTable thead th').forEach(th=> th.addEventListener('click', ()=>{ const k=th.dataset.key; if(k===sortKey) sortDir = (sortDir==='asc'?'desc':'asc'); else { sortKey=k; sortDir='asc'; } renderGrid(); }) );
+
+    // ---------- JSON Import/Export ----------
+    document.getElementById('btnExportJson').addEventListener('click', ()=>{ const payload = JSON.stringify(state, null, 2); const blob=new Blob([payload], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='n6-notes-tasks.json'; a.click(); URL.revokeObjectURL(url); });
+    document.getElementById('btnImportJson').addEventListener('click', ()=> document.getElementById('importFile').click());
+    document.getElementById('importFile').addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; const text = await f.text(); try{ const data=JSON.parse(text); if(!data||typeof data!=='object') throw new Error('Invalid'); state = Object.assign(defaultState(), data); markDirty(); renderAll(); }catch(err){ alert('Invalid JSON'); } e.target.value=''; });
+
+    // ---------- Modal editing for note items ----------
+    const taskModal = document.getElementById('taskModal');
+    const modalStatusSelect = document.getElementById('modalStatusSelect');
+    const modalPrioritySelect = document.getElementById('modalPrioritySelect');
+    const modalDueDate = document.getElementById('modalDueDate');
+    const modalTagContainer = document.getElementById('modalTagContainer');
+    const modalNewTagInput = document.getElementById('modalNewTagInput');
+    const modalAddTag = document.getElementById('modalAddTag');
+    const modalSaveBtn = document.getElementById('modalSaveBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+    let currentModalTask = null;
+    function openTaskModalByKey(noteKey){
+      const task = state.tasks.find(t => t.noteKey === noteKey);
+      if(!task) return;
+      currentModalTask = task;
+      // populate selects
+      modalStatusSelect.value = task.status || 'backlog';
+      modalPrioritySelect.value = String(task.priority || 2);
+      // build tag chips
+      modalTagContainer.innerHTML = '';
+      state.tags.forEach(tag => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip-tag';
+        chip.textContent = tag;
+        chip.dataset.tag = tag;
+        if(task.tags && task.tags.includes(tag)) chip.classList.add('selected');
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('selected');
+        });
+        modalTagContainer.appendChild(chip);
+      });
+      // clear new tag input
+      modalNewTagInput.value = '';
+      // set due date value
+      if(typeof modalDueDate !== 'undefined'){
+        if(task.dueDate){
+          const dt = new Date(task.dueDate);
+          modalDueDate.value = dt.toISOString().split('T')[0];
+        } else {
+          modalDueDate.value = '';
+        }
+      }
+      // show modal
+      taskModal.style.display = 'flex';
+    }
+
+    // Open the task editing modal for a given task by its id (used outside of notes)
+    function openTaskModalForId(taskId){
+      const task = state.tasks.find(t => t.id === taskId);
+      if(!task) return;
+      currentModalTask = task;
+      // populate selects
+      modalStatusSelect.value = task.status || 'backlog';
+      modalPrioritySelect.value = String(task.priority || 2);
+      // build tag chips
+      modalTagContainer.innerHTML = '';
+      state.tags.forEach(tag => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip-tag';
+        chip.textContent = tag;
+        chip.dataset.tag = tag;
+        if(task.tags && task.tags.includes(tag)) chip.classList.add('selected');
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('selected');
+        });
+        modalTagContainer.appendChild(chip);
+      });
+      // clear new tag input
+      modalNewTagInput.value = '';
+      // set due date value
+      if(typeof modalDueDate !== 'undefined'){
+        if(task.dueDate){
+          const dt = new Date(task.dueDate);
+          modalDueDate.value = dt.toISOString().split('T')[0];
+        } else {
+          modalDueDate.value = '';
+        }
+      }
+      // show modal
+      taskModal.style.display = 'flex';
+    }
+    function closeTaskModal(){
+      taskModal.style.display = 'none';
+      currentModalTask = null;
+    }
+    modalSaveBtn.addEventListener('click', () => {
+      if(!currentModalTask){ closeTaskModal(); return; }
+      currentModalTask.status = modalStatusSelect.value;
+      currentModalTask.priority = Number(modalPrioritySelect.value);
+      currentModalTask.tags = Array.from(modalTagContainer.querySelectorAll('.chip-tag.selected')).map(el => el.dataset.tag);
+      // update due date
+      if(typeof modalDueDate !== 'undefined'){
+        currentModalTask.dueDate = modalDueDate.value ? new Date(modalDueDate.value).getTime() : null;
+      }
+      // add new tag if specified
+      const newName = (modalNewTagInput.value || '').trim();
+      if(newName){
+        if(!state.tags.includes(newName)){
+          state.tags.push(newName);
+        }
+        if(!currentModalTask.tags.includes(newName)){
+          currentModalTask.tags.push(newName);
+        }
+      }
+      modalNewTagInput.value = '';
+      markDirty();
+      renderTagPalette();
+      renderTasks(); renderKanban(); renderGrid();
+      closeTaskModal();
+    });
+    modalCancelBtn.addEventListener('click', () => {
+      closeTaskModal();
+    });
+    // optional: clicking outside card closes
+    taskModal.addEventListener('click', (e) => {
+      if(e.target === taskModal){ closeTaskModal(); }
+    });
+
+    // Add new tag inside modal
+    modalAddTag.addEventListener('click', () => {
+      const name = (modalNewTagInput.value || '').trim();
+      if(!name) return;
+      // Add to global tags if not present
+      if(!state.tags.includes(name)){
+        state.tags.push(name);
+      }
+      // Add to current task tags if editing an existing task
+      if(currentModalTask){
+        if(!currentModalTask.tags.includes(name)){
+          currentModalTask.tags.push(name);
+        }
+      }
+      // Create chip in modal and mark selected
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip-tag selected';
+      chip.textContent = name;
+      chip.dataset.tag = name;
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('selected');
+      });
+      modalTagContainer.appendChild(chip);
+      modalNewTagInput.value = '';
+    });
+
+    // ---------- SharePoint scaffolding (commented for future plug‑and‑play) ----------
+    /*
+    // Example: enable, then set SP_LIST_PATH / SP_LIBRARY_PATH and call pushToList()/uploadToLibrary()
+    const SP_LIST_PATH = '/sites/YourSite/Lists/Tasks';
+    const SP_LIBRARY_PATH = '/sites/YourSite/Shared Documents';
+    async function spRequest(path, opts={}){
+      const web = (window._spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) || location.origin; // must be same-origin
+      const url = path.startsWith('http')? path : web.replace(/\/$/,'') + '/' + path.replace(/^\//,'');
+      const res = await fetch(url, Object.assign({ credentials:'include', headers:{ 'Accept':'application/json;odata=nometadata' }}, opts));
+      if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error(`${opts.method||'GET'} ${path} -> ${res.status}: ${t}`); }
+      const ct=res.headers.get('Content-Type')||''; return ct.includes('json')? res.json(): res.text();
+    }
+    async function pushToList(){ /* map state.tasks to list items here *-/ }
+    async function uploadToLibrary(){ /* upload a JSON snapshot to a library here *-/ }
+    */
+
+    // ---------- Calendar & Day (My Day) ----------
+    // Track the currently displayed month for the calendar. Always represents the first day of that month.
+    let calendarMonth = new Date();
+    calendarMonth.setDate(1);
+
+    function zeroPad(n){ return String(n).padStart(2, '0'); }
+
+    // Render the calendar view for the current month. Populates the calendar grid with day cells,
+    // shows tasks with due dates on their corresponding day, enables drag-and-drop to reschedule tasks,
+    // and updates the month label.
+    function renderCalendar(){
+      const grid = document.getElementById('calendarGrid');
+      if(!grid) return;
+      grid.innerHTML = '';
+      // Day of week header
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      dayNames.forEach(name => {
+        const div = document.createElement('div');
+        div.className = 'day-of-week';
+        div.textContent = name;
+        grid.appendChild(div);
+      });
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth();
+      const first = new Date(year, month, 1);
+      const firstDay = first.getDay(); // 0=Sun
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevMonthDays = new Date(year, month, 0).getDate();
+      // Build 42 cells (6 weeks)
+      for(let i=0;i<42;i++){
+        const cell = document.createElement('div');
+        cell.className = 'calendar-cell';
+        let dateNum, cellMonth, cellYear;
+        if(i < firstDay){
+          // Previous month
+          dateNum = prevMonthDays - firstDay + 1 + i;
+          cellMonth = month - 1;
+          cellYear = year;
+          if(cellMonth < 0){ cellMonth = 11; cellYear--; }
+          cell.classList.add('out-month');
+        } else if(i >= firstDay + daysInMonth){
+          // Next month
+          dateNum = i - (firstDay + daysInMonth) + 1;
+          cellMonth = month + 1;
+          cellYear = year;
+          if(cellMonth > 11){ cellMonth = 0; cellYear++; }
+          cell.classList.add('out-month');
+        } else {
+          // Current month
+          dateNum = i - firstDay + 1;
+          cellMonth = month;
+          cellYear = year;
+        }
+        const dateStr = cellYear + '-' + zeroPad(cellMonth+1) + '-' + zeroPad(dateNum);
+        // Date number label
+        const dateNumEl = document.createElement('div');
+        dateNumEl.className = 'date-num';
+        dateNumEl.textContent = dateNum;
+        cell.appendChild(dateNumEl);
+        // Tasks due on this date
+        const tasksForDate = state.tasks.filter(t => {
+          if(!t.dueDate) return false;
+          const dt = new Date(t.dueDate);
+          return dt.getFullYear() === cellYear && dt.getMonth() === cellMonth && dt.getDate() === dateNum;
+        });
+        // Sort tasks by startTime then priority then createdAt
+        tasksForDate.sort((a,b) => {
+          const aStart = a.startTime ?? Infinity;
+          const bStart = b.startTime ?? Infinity;
+          if(aStart !== bStart) return aStart - bStart;
+          if(a.priority !== b.priority) return a.priority - b.priority;
+          return (a.createdAt||0) - (b.createdAt||0);
+        });
+        tasksForDate.forEach(t => {
+          const taskDiv = document.createElement('div');
+          taskDiv.className = 'calendar-task';
+          taskDiv.textContent = t.title;
+          // Append time if scheduled
+          if(t.startTime){
+            const dt = new Date(t.startTime);
+            const hh = dt.getHours().toString().padStart(2,'0');
+            const mm = dt.getMinutes().toString().padStart(2,'0');
+            taskDiv.textContent += ' (' + hh + ':' + mm + ')';
+          }
+          taskDiv.draggable = true;
+          taskDiv.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', t.id);
+          });
+          // clicking a calendar task opens the edit modal
+          taskDiv.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openTaskModalForId(t.id);
+          });
+          cell.appendChild(taskDiv);
+        });
+        // Click to open day view for this date
+        cell.addEventListener('click', (e) => {
+          // Only react if clicking cell or date label (not tasks)
+          if(e.target !== cell && e.target !== dateNumEl) return;
+          selectedDate = dateStr;
+          showView('day');
+        });
+        // Drag-over and drop behaviour
+        cell.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          cell.classList.add('drag-over');
+        });
+        cell.addEventListener('dragleave', () => {
+          cell.classList.remove('drag-over');
+        });
+        cell.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain');
+          const task = state.tasks.find(x => x.id === id);
+          if(task){
+            // Determine new due date/time
+            const parts = dateStr.split('-');
+            const yy = parseInt(parts[0],10);
+            const mm = parseInt(parts[1],10);
+            const dd = parseInt(parts[2],10);
+            task.dueDate = new Date(yy, mm-1, dd).getTime();
+            if(task.startTime != null){
+              const dtOld = new Date(task.startTime);
+              const h = dtOld.getHours();
+              const minutes = dtOld.getMinutes();
+              const dtNew = new Date(yy, mm-1, dd, h, minutes);
+              task.startTime = dtNew.getTime();
+            }
+            markDirty();
+            renderCalendar();
+            // If the day view is open for this date, re-render it
+            if(selectedDate && selectedDate === dateStr) renderDay(selectedDate);
+            renderTasks(); renderKanban(); renderGrid();
+          }
+          cell.classList.remove('drag-over');
+        });
+        cell.dataset.date = dateStr;
+        grid.appendChild(cell);
+      }
+      // Update month label
+      const monthLabel = document.getElementById('calendarMonthLabel');
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      monthLabel.textContent = monthNames[month] + ' ' + year;
+    }
+
+    // Change the calendar month by delta months (positive or negative)
+    function changeMonth(delta){
+      calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + delta, 1);
+      renderCalendar();
+    }
+    // Add navigation event listeners
+    document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
+
+    // Utility function: check if two dates share the same year, month and day
+    function isSameDate(d1, d2){
+      return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+    }
+
+    // Render the My Day view for a given date (YYYY-MM-DD)
+    function renderDay(dateStr){
+      selectedDate = dateStr;
+      const dayLabel = document.getElementById('dayLabel');
+      const unscheduled = document.getElementById('dayUnscheduled');
+      const dayGrid = document.getElementById('dayGrid');
+      if(!dayLabel || !unscheduled || !dayGrid) return;
+      // Parse date components
+      const parts = dateStr.split('-');
+      const yy = parseInt(parts[0],10);
+      const mm = parseInt(parts[1],10);
+      const dd = parseInt(parts[2],10);
+      const dtBase = new Date(yy, mm-1, dd);
+      // Update header label
+      dayLabel.textContent = dtBase.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      // Clear containers
+      unscheduled.innerHTML = '';
+      dayGrid.innerHTML = '';
+      // Gather tasks relevant to this day: tasks with dueDate matching dateStr or no dueDate
+      const tasksForDay = state.tasks.filter(t => {
+        if(!t.dueDate){
+          // tasks with no due date are unscheduled and can be scheduled on this day
+          return true;
+        }
+        const ddt = new Date(t.dueDate);
+        return isSameDate(ddt, dtBase);
+      });
+      // Separate into unscheduled (no startTime or startTime outside 6-16:30) and scheduled
+      const uns = [];
+      const schedMap = {};
+      tasksForDay.forEach(t => {
+        const dueMatch = t.dueDate ? isSameDate(new Date(t.dueDate), dtBase) : false;
+        if(t.startTime != null){
+          const st = new Date(t.startTime);
+          if(!dueMatch || st.getHours() < 6 || (st.getHours() === 16 && st.getMinutes() > 30) || st.getHours() > 16){
+            uns.push(t);
+          } else {
+            const key = zeroPad(st.getHours()) + ':' + zeroPad(st.getMinutes());
+            if(!schedMap[key]) schedMap[key] = [];
+            schedMap[key].push(t);
+          }
+        } else {
+          // No startTime: treat as unscheduled. Only include if due date matches or dueDate is null.
+          if(dueMatch || !t.dueDate) uns.push(t);
+        }
+      });
+      // Render unscheduled tasks
+      uns.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'calendar-task';
+        div.textContent = t.title;
+        // show due date if task has dueDate not this day
+        if(t.dueDate && !isSameDate(new Date(t.dueDate), dtBase)){
+          div.textContent += ' (' + formatDate(t.dueDate) + ')';
+        }
+        div.draggable = true;
+        div.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', t.id);
+        });
+        // clicking opens modal
+        div.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openTaskModalForId(t.id);
+        });
+        unscheduled.appendChild(div);
+      });
+      // Drag target: unscheduled container resets startTime
+      unscheduled.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        unscheduled.classList.add('drag-over');
+      });
+      unscheduled.addEventListener('dragleave', () => {
+        unscheduled.classList.remove('drag-over');
+      });
+      unscheduled.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        const task = state.tasks.find(x => x.id === id);
+        if(task){
+          // assign this day if dueDate null or other day
+          task.dueDate = new Date(yy, mm-1, dd).getTime();
+          task.startTime = null;
+          markDirty();
+          renderDay(dateStr);
+          renderCalendar();
+          renderTasks(); renderKanban(); renderGrid();
+        }
+        unscheduled.classList.remove('drag-over');
+      });
+      // Build time slots 06:00 to 16:30 (30 min increments)
+      const startHour = 6;
+      const endHour = 17; // 5pm
+      let h = startHour;
+      let m = 0;
+      while(true){
+        const slot = document.createElement('div');
+        slot.className = 'day-slot';
+        // tag the slot with its time for easier event handlers
+        slot.dataset.hour = h;
+        slot.dataset.minute = m;
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'day-time';
+        timeLabel.textContent = zeroPad(h) + ':' + zeroPad(m);
+        slot.appendChild(timeLabel);
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
+        const key = zeroPad(h) + ':' + zeroPad(m);
+        const list = (schedMap[key] || []).slice();
+        // Sort by priority then createdAt
+        list.sort((a,b) => {
+          if(a.priority !== b.priority) return a.priority - b.priority;
+          return (a.createdAt||0) - (b.createdAt||0);
+        });
+        list.forEach(t => {
+          const div = document.createElement('div');
+          div.className = 'calendar-task';
+          div.textContent = t.title;
+          div.draggable = true;
+          div.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', t.id);
+          });
+          // clicking opens modal
+          div.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openTaskModalForId(t.id);
+          });
+          cell.appendChild(div);
+        });
+        // Drag handlers for cell
+        // handle drag-and-drop on the cell itself
+        cell.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          cell.classList.add('drag-over');
+        });
+        cell.addEventListener('dragleave', () => {
+          cell.classList.remove('drag-over');
+        });
+        cell.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain');
+          const task = state.tasks.find(x => x.id === id);
+          if(task){
+            // update to this day's date and this slot's time
+            task.dueDate = new Date(yy, mm-1, dd).getTime();
+            const dtNew = new Date(yy, mm-1, dd, h, m);
+            task.startTime = dtNew.getTime();
+            markDirty();
+            renderDay(dateStr);
+            renderCalendar();
+            renderTasks(); renderKanban(); renderGrid();
+          }
+          cell.classList.remove('drag-over');
+        });
+
+        // also treat the entire slot (row) as a drop target; this makes it easier to
+        // drop tasks without having to target the narrow cell precisely. Use the dataset
+        // hour/minute attributes defined on the slot to determine the drop time.
+        slot.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          cell.classList.add('drag-over');
+        });
+        slot.addEventListener('dragleave', () => {
+          cell.classList.remove('drag-over');
+        });
+        slot.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain');
+          const task = state.tasks.find(x => x.id === id);
+          if(task){
+            const hh = parseInt(slot.dataset.hour, 10);
+            const mm2 = parseInt(slot.dataset.minute, 10);
+            task.dueDate = new Date(yy, mm-1, dd).getTime();
+            const dtNew = new Date(yy, mm-1, dd, hh, mm2);
+            task.startTime = dtNew.getTime();
+            markDirty();
+            renderDay(dateStr);
+            renderCalendar();
+            renderTasks(); renderKanban(); renderGrid();
+          }
+          cell.classList.remove('drag-over');
+        });
+        slot.appendChild(cell);
+        dayGrid.appendChild(slot);
+        // increment time
+        if(h === endHour - 1 && m === 30) break;
+        m += 30;
+        if(m >= 60){ m = 0; h++; }
+      }
+    }
+
+    // ---------- Safe-area offsets (SharePoint mobile) ----------
+    function parsePx(v,d){ const n=parseFloat(v); return Number.isFinite(n)? n:d; }
+    function applySharePointCanvasOffsets(){ const wrap=document.querySelector('.wrap'); if(!wrap) return; const root=document.documentElement.style; if(!window.matchMedia('(max-width:600px)').matches){ root.setProperty('--sp-left-offset','0px'); root.setProperty('--sp-right-offset','0px'); return; } root.setProperty('--sp-left-offset','0px'); root.setProperty('--sp-right-offset','0px'); const rect=wrap.getBoundingClientRect(); const leftGap=Math.max(0, rect.left); const rightGap=Math.max(0, window.innerWidth - rect.right); const leftOffset=Math.max(0, leftGap - 1); const rightOffset=Math.max(0, rightGap - 1); root.setProperty('--sp-left-offset', leftOffset+'px'); root.setProperty('--sp-right-offset', rightOffset+'px'); }
+    window.addEventListener('resize', applySharePointCanvasOffsets);
+    document.addEventListener('readystatechange', ()=>{ if(document.readyState==='complete'){ applySharePointCanvasOffsets(); setTimeout(applySharePointCanvasOffsets, 150); setTimeout(applySharePointCanvasOffsets, 400); } });
+
+    // ---------- Init ----------
+    function renderAll(){ renderNotes(); syncNotesToTasks(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); }
+    load(); initTheme(); buildSwatches(); renderAll(); setSaved(true); showView('notes');
+  })();
+  </script>
+</body>
+</html>
