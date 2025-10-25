@@ -56,6 +56,9 @@
     .btn.primary{background:var(--header-fill);color:#fff;border-color:transparent}
     .btn.ghost{background:#fff;color:var(--brand1)}
     .pill{display:inline-block;padding:2px 6px;border-radius:999px;font-size:11px;border:1px solid var(--line);background:#f2f4f8;color:var(--ink)}
+    .context-menu{position:fixed;z-index:5000;display:none;min-width:140px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 24px rgba(15,23,42,.18);padding:4px 0}
+    .context-menu button{display:block;width:100%;padding:8px 14px;border:none;background:none;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+    .context-menu button:hover{background:var(--head-tint)}
 
     /* Cards/heads (CFOE style) */
     .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,.05);margin:0 0 12px}
@@ -707,6 +710,33 @@
       // finally clean double </ul>
       return s;
     }
+
+    function truncateTextWithEllipsis(text, limit){
+      const value = String(text ?? '');
+      if(value.length <= limit) return { text: value, truncated: false };
+      const sliced = value.slice(0, limit).replace(/\s+$/,'');
+      return { text: sliced + '...', truncated: true };
+    }
+
+    function applyTruncatedTitle(el, text, options={}){
+      const limit = Number.isFinite(options.limit) ? options.limit : 25;
+      const fallback = options.fallback ?? '(Untitled)';
+      const extraTooltip = options.extraTooltip;
+      const raw = text == null ? '' : String(text);
+      const base = raw.trim().length ? raw.trim() : fallback;
+      const info = truncateTextWithEllipsis(base, limit);
+      el.textContent = info.text;
+      el.dataset.fullTitle = base;
+      const tooltipParts = [];
+      if(info.truncated) tooltipParts.push(base);
+      if(extraTooltip){ tooltipParts.push(extraTooltip); }
+      if(tooltipParts.length){
+        el.setAttribute('title', tooltipParts.join('\n'));
+      } else {
+        el.removeAttribute('title');
+      }
+      return { full: base, truncated: info.truncated };
+    }
     // Build interactive list of notes as a sortable checklist
     function renderNotesList(){
       notesPreview.innerHTML = '';
@@ -734,6 +764,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'note-item note-check';
         wrapper.draggable = false;
+        wrapper.dataset.taskId = task.id;
         if(task.status === 'done'){ wrapper.classList.add('done'); }
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -748,7 +779,7 @@
         });
         const span = document.createElement('span');
         span.className = 'note-text';
-        span.textContent = task.title || '(Untitled)';
+        applyTruncatedTitle(span, task.title);
         wrapper.appendChild(checkbox);
         wrapper.appendChild(span);
         wrapper.addEventListener('click', (ev) => {
@@ -780,6 +811,11 @@
         // Determine unique key for mapping to task
         const noteKey = 'notes:' + text.toLowerCase();
         div.dataset.noteKey = noteKey;
+        div.dataset.noteLineIndex = idx;
+        const relatedTask = state.tasks.find(t => t.noteKey === noteKey);
+        if(relatedTask){
+          div.dataset.taskId = relatedTask.id;
+        }
         if(done) div.classList.add('done');
         // Checkbox element: clicking marks complete
         const checkbox = document.createElement('input');
@@ -808,7 +844,7 @@
         });
         const span = document.createElement('span');
         span.className = 'note-text';
-        span.textContent = text;
+        applyTruncatedTitle(span, text);
         span.addEventListener('click', (e) => {
           // Only open modal on left click
           openTaskModalByKey(noteKey);
@@ -1010,6 +1046,47 @@
       state.tasks = next.concat(manual);
     }
 
+    function deleteTask(task){
+      if(!task) return;
+      if(task.fromNotes){
+        const arr = String(state.notes||'').split(/\r?\n/);
+        const target = (task.title||'').trim().toLowerCase();
+        const idx = arr.findIndex(line => {
+          const clean = line.replace(/^\s*-\s*\[(?: |x|X)\]\s*/, '').replace(/^\s*-\s*/, '').trim().toLowerCase();
+          return clean === target;
+        });
+        if(idx >= 0){
+          arr.splice(idx, 1);
+          state.notes = arr.join('\n');
+          notesInput.value = state.notes;
+        }
+      }
+      state.tasks = state.tasks.filter(x => x && x.id !== task.id);
+      syncNotesToTasks();
+      markDirty();
+      renderNotesList();
+      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
+    }
+
+    function deleteTaskById(taskId){
+      const task = state.tasks.find(t => t && t.id === taskId);
+      if(task) deleteTask(task);
+    }
+
+    function deleteNoteLine(lineIndex){
+      const arr = String(state.notes||'').split(/\r?\n/);
+      if(lineIndex < 0 || lineIndex >= arr.length) return;
+      arr.splice(lineIndex, 1);
+      state.notes = arr.join('\n');
+      notesInput.value = state.notes;
+      syncNotesToTasks();
+      markDirty();
+      renderNotesList();
+      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
+    }
+
     // ---------- Tags ----------
     const tagPaletteEl = document.getElementById('tagPalette'); const newTagInput=document.getElementById('newTagInput');
     function renderTagPalette(selected=[]) {
@@ -1070,8 +1147,10 @@
       });
       tasksSorted.forEach(t=>{
         const card=document.createElement('div'); card.className='task-card';
+        card.dataset.taskId = t.id;
         const top=document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center';
-        const title=document.createElement('div'); title.className='task-title'; title.textContent=t.title; top.appendChild(title);
+        const title=document.createElement('div'); title.className='task-title'; applyTruncatedTitle(title, t.title);
+        top.appendChild(title);
         const meta=document.createElement('div'); meta.className='subtle';
         let metaText = `${t.status} • P${t.priority}`;
         if(t.dueDate){
@@ -1097,29 +1176,7 @@
         const bar=document.createElement('div'); bar.className='toolbar';
         const del=document.createElement('button'); del.className='btn'; del.textContent='Delete';
         del.addEventListener('click', ()=>{
-          // If task came from notes, remove corresponding note line
-          if(t.fromNotes){
-            const arr = String(state.notes||'').split(/\r?\n/);
-            const target = (t.title||'').trim().toLowerCase();
-            const idx = arr.findIndex(line => {
-              // Remove checkbox prefix and dash prefix
-              const clean = line.replace(/^\s*-\s*\[(?: |x|X)\]\s*/, '').replace(/^\s*-\s*/, '').trim().toLowerCase();
-              return clean === target;
-            });
-            if(idx >= 0){
-              arr.splice(idx, 1);
-              state.notes = arr.join('\n');
-              notesInput.value = state.notes;
-            }
-          }
-          // Remove from tasks list
-          state.tasks = state.tasks.filter(x=>x.id!==t.id);
-          // Synchronize tasks from notes again
-          syncNotesToTasks();
-          markDirty();
-          renderNotesList();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          deleteTask(t);
         });
         const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
         bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
@@ -1141,11 +1198,12 @@
         state.tasks.filter(t=>t.status===l.k).forEach(t=>{
           const c=document.createElement('div');
           c.className='kb-card';
+          c.dataset.taskId = t.id;
           c.draggable=true;
           c.addEventListener('dragstart',(e)=>{ e.dataTransfer.setData('text/plain', t.id); });
           const titleEl=document.createElement('div');
           titleEl.style.fontWeight='700';
-          titleEl.textContent=t.title;
+          applyTruncatedTitle(titleEl, t.title);
           const metaEl=document.createElement('div');
           metaEl.className='subtle';
           let metaText = `P${t.priority}`;
@@ -1181,7 +1239,7 @@
         return sortDir==='asc' ? (av>bv?1:av<bv?-1:0) : (av<bv?1:av>bv?-1:0);
       });
       items.forEach((t,rowIdx)=>{
-        const tr=document.createElement('tr'); tr.dataset.id=t.id;
+        const tr=document.createElement('tr'); tr.dataset.id=t.id; tr.dataset.taskId = t.id;
         const cols=[
           {k:'title', v:t.title},
           {k:'status', v:t.status},
@@ -1590,7 +1648,8 @@
         tasksForDate.forEach(t => {
           const taskDiv = document.createElement('div');
           taskDiv.className = 'calendar-task';
-          taskDiv.textContent = t.title;
+          taskDiv.dataset.taskId = t.id;
+          applyTruncatedTitle(taskDiv, t.title, { extraTooltip: t.details });
           // Append time if scheduled
           if(t.startTime){
             const dt = new Date(t.startTime);
@@ -1598,7 +1657,6 @@
             const mm = dt.getMinutes().toString().padStart(2,'0');
             taskDiv.textContent += ' (' + hh + ':' + mm + ')';
           }
-          if(t.details){ taskDiv.title = t.details; }
           taskDiv.draggable = true;
           taskDiv.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
@@ -1805,9 +1863,10 @@
       uns.forEach(t => {
         const div = document.createElement('div');
         div.className = 'calendar-task';
+        div.dataset.taskId = t.id;
         const titleLine=document.createElement('div');
         titleLine.className='calendar-task-title';
-        titleLine.textContent=t.title;
+        applyTruncatedTitle(titleLine, t.title, { extraTooltip: t.details });
         div.appendChild(titleLine);
         if(t.dueDate && !isSameDate(new Date(t.dueDate), dtBase)){
           const meta=document.createElement('div');
@@ -1821,7 +1880,13 @@
           note.textContent=t.details;
           div.appendChild(note);
         }
-        if(t.details) div.title = t.details;
+        if(t.details){
+          div.title = titleLine.dataset.fullTitle && titleLine.dataset.fullTitle !== t.details
+            ? titleLine.dataset.fullTitle + '\n' + t.details
+            : t.details;
+        } else if(titleLine.getAttribute('title')){
+          div.title = titleLine.getAttribute('title');
+        }
         div.draggable = true;
         div.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', t.id);
@@ -1883,9 +1948,10 @@
         list.forEach(t => {
           const div = document.createElement('div');
           div.className = 'calendar-task';
+          div.dataset.taskId = t.id;
           const titleLine=document.createElement('div');
           titleLine.className='calendar-task-title';
-          titleLine.textContent=t.title;
+          applyTruncatedTitle(titleLine, t.title, { extraTooltip: t.details });
           div.appendChild(titleLine);
           if(t.details){
             const note=document.createElement('div');
@@ -1893,7 +1959,13 @@
             note.textContent=t.details;
             div.appendChild(note);
           }
-          if(t.details) div.title = t.details;
+          if(t.details){
+            div.title = titleLine.dataset.fullTitle && titleLine.dataset.fullTitle !== t.details
+              ? titleLine.dataset.fullTitle + '\n' + t.details
+              : t.details;
+          } else if(titleLine.getAttribute('title')){
+            div.title = titleLine.getAttribute('title');
+          }
           div.draggable = true;
           div.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
@@ -1966,6 +2038,82 @@
         if(m >= 60){ m = 0; h++; }
       }
     }
+
+    // ---------- Context menu for item actions ----------
+    const contextMenu = document.createElement('div');
+    contextMenu.className = 'context-menu';
+    const contextDeleteBtn = document.createElement('button');
+    contextDeleteBtn.type = 'button';
+    contextDeleteBtn.textContent = 'Delete';
+    contextMenu.appendChild(contextDeleteBtn);
+    document.body.appendChild(contextMenu);
+
+    let contextTarget = null;
+
+    function hideContextMenu(){
+      contextMenu.style.display = 'none';
+      contextTarget = null;
+    }
+
+    function showContextMenu(x, y){
+      contextMenu.style.display = 'block';
+      const rect = contextMenu.getBoundingClientRect();
+      const padding = 8;
+      let left = x;
+      let top = y;
+      if(left + rect.width > window.innerWidth - padding){
+        left = Math.max(padding, window.innerWidth - rect.width - padding);
+      }
+      if(top + rect.height > window.innerHeight - padding){
+        top = Math.max(padding, window.innerHeight - rect.height - padding);
+      }
+      contextMenu.style.left = left + 'px';
+      contextMenu.style.top = top + 'px';
+    }
+
+    contextDeleteBtn.addEventListener('click', () => {
+      if(!contextTarget) return;
+      if(contextTarget.type === 'task'){
+        deleteTaskById(contextTarget.id);
+      } else if(contextTarget.type === 'note-line'){
+        deleteNoteLine(contextTarget.index);
+      }
+      hideContextMenu();
+    });
+
+    document.addEventListener('click', hideContextMenu);
+    window.addEventListener('resize', hideContextMenu);
+    document.addEventListener('scroll', hideContextMenu, true);
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') hideContextMenu();
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+      const target = e.target.closest('[data-task-id],[data-note-line-index]');
+      if(!target){
+        hideContextMenu();
+        return;
+      }
+      e.preventDefault();
+      const taskId = target.dataset.taskId;
+      if(taskId){
+        const task = state.tasks.find(t => t && t.id === taskId);
+        if(task){
+          contextTarget = { type: 'task', id: task.id };
+          showContextMenu(e.clientX, e.clientY);
+          return;
+        }
+      }
+      if(target.dataset.noteLineIndex != null){
+        const idx = parseInt(target.dataset.noteLineIndex, 10);
+        if(Number.isInteger(idx)){
+          contextTarget = { type: 'note-line', index: idx };
+          showContextMenu(e.clientX, e.clientY);
+          return;
+        }
+      }
+      hideContextMenu();
+    });
 
     // ---------- Safe-area offsets (SharePoint mobile) ----------
     function parsePx(v,d){ const n=parseFloat(v); return Number.isFinite(n)? n:d; }
