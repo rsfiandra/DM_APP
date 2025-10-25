@@ -60,6 +60,12 @@
     .context-menu button{display:block;width:100%;padding:8px 14px;border:none;background:none;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
     .context-menu button:hover{background:var(--head-tint)}
 
+    .truncate-text{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
     /* Cards/heads (CFOE style) */
     .card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,.05);margin:0 0 12px}
     .card-head{padding:12px;background:var(--head-tint);border-bottom:1px solid var(--head-tint-border);font-weight:700;color:#334155;border-radius:14px 14px 0 0}
@@ -147,6 +153,14 @@
       gap:2px;
     }
     .note-task-title{font-weight:600;color:var(--ink);}
+    .note-text{
+      flex:1;
+      min-width:0;
+      display:block;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .note-task-meta{font-size:12px;color:var(--muted);}
     .note-item.note-task.done .note-task-title{
       text-decoration:line-through;
@@ -174,7 +188,15 @@
     .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
     .task-list{display:grid;gap:10px}
     .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
-    .task-title{font-weight:700}
+    .task-title{
+      font-weight:700;
+      color:var(--ink);
+      flex:1;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .subtle{color:var(--muted);font-size:12px}
     .checklist{margin:6px 0 0;padding-left:22px}
 
@@ -185,6 +207,13 @@
     .col-body{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
     .drag-over{outline:2px dashed #93c5fd;background:var(--kanban-drop)}
     .kb-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:grab}
+    .kb-card-title{
+      font-weight:700;
+      color:var(--ink);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
 
     /* Table */
     .grid{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
@@ -259,6 +288,7 @@
       border-radius:6px;
       background:#fff;
       cursor:grab;
+      max-width:100%;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -340,7 +370,14 @@
       gap:2px;
       white-space:normal;
     }
-    .calendar-task-title{font-weight:600;color:var(--ink);}
+    .calendar-task-title{
+      font-weight:600;
+      color:var(--ink);
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .calendar-task-note{font-size:12px;color:var(--muted);}
     .calendar-task-meta{font-size:12px;color:var(--muted);}
 
@@ -711,31 +748,74 @@
       return s;
     }
 
-    function truncateTextWithEllipsis(text, limit){
-      const value = String(text ?? '');
-      if(value.length <= limit) return { text: value, truncated: false };
-      const sliced = value.slice(0, limit).replace(/\s+$/,'');
-      return { text: sliced + '...', truncated: true };
+    let truncateObserver;
+    function ensureTruncateObserver(){
+      if(!truncateObserver){
+        truncateObserver = new ResizeObserver(entries => {
+          entries.forEach(entry => {
+            const target = entry.target;
+            if(target && target._truncateMeta){
+              updateTruncateTooltip(target);
+            }
+          });
+        });
+      }
+      return truncateObserver;
     }
 
-    function applyTruncatedTitle(el, text, options={}){
-      const limit = Number.isFinite(options.limit) ? options.limit : 25;
-      const fallback = options.fallback ?? '(Untitled)';
-      const extraTooltip = options.extraTooltip;
-      const raw = text == null ? '' : String(text);
-      const base = raw.trim().length ? raw.trim() : fallback;
-      const info = truncateTextWithEllipsis(base, limit);
-      el.textContent = info.text;
-      el.dataset.fullTitle = base;
+    function updateTruncateTooltip(el){
+      const meta = el._truncateMeta;
+      if(!meta) return;
+      if(!el.isConnected){
+        ensureTruncateObserver().unobserve(el);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const width = rect.width || el.clientWidth;
+      const scrollWidth = el.scrollWidth;
+      if(width === 0 && scrollWidth === 0){
+        return;
+      }
+      const needsEllipsis = scrollWidth - width > 1;
+      meta.truncated = needsEllipsis;
       const tooltipParts = [];
-      if(info.truncated) tooltipParts.push(base);
-      if(extraTooltip){ tooltipParts.push(extraTooltip); }
+      if(needsEllipsis && meta.base){
+        tooltipParts.push(meta.base);
+      }
+      if(meta.extraTooltip){
+        tooltipParts.push(meta.extraTooltip);
+      }
       if(tooltipParts.length){
         el.setAttribute('title', tooltipParts.join('\n'));
       } else {
         el.removeAttribute('title');
       }
-      return { full: base, truncated: info.truncated };
+    }
+
+    function scheduleTruncateUpdate(el){
+      requestAnimationFrame(() => {
+        updateTruncateTooltip(el);
+        requestAnimationFrame(() => updateTruncateTooltip(el));
+      });
+    }
+
+    function applyTruncatedTitle(el, text, options={}){
+      const fallback = options.fallback ?? '(Untitled)';
+      const extraTooltipRaw = options.extraTooltip;
+      const extraTooltip = extraTooltipRaw == null ? '' : String(extraTooltipRaw);
+      const raw = text == null ? '' : String(text);
+      const base = raw.trim().length ? raw.trim() : fallback;
+      el.textContent = base;
+      el.dataset.fullTitle = base;
+      el.classList.add('truncate-text');
+      if(el.tagName === 'SPAN' && el.style.display === ''){
+        el.style.display = 'block';
+      }
+      const meta = { base, extraTooltip, truncated: false };
+      el._truncateMeta = meta;
+      ensureTruncateObserver().observe(el);
+      scheduleTruncateUpdate(el);
+      return meta;
     }
     // Build interactive list of notes as a sortable checklist
     function renderNotesList(){
@@ -1148,7 +1228,7 @@
       tasksSorted.forEach(t=>{
         const card=document.createElement('div'); card.className='task-card';
         card.dataset.taskId = t.id;
-        const top=document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center';
+        const top=document.createElement('div'); top.style.display='flex'; top.style.justifyContent='space-between'; top.style.alignItems='center'; top.style.gap='8px'; top.style.minWidth='0';
         const title=document.createElement('div'); title.className='task-title'; applyTruncatedTitle(title, t.title);
         top.appendChild(title);
         const meta=document.createElement('div'); meta.className='subtle';
@@ -1202,7 +1282,7 @@
           c.draggable=true;
           c.addEventListener('dragstart',(e)=>{ e.dataTransfer.setData('text/plain', t.id); });
           const titleEl=document.createElement('div');
-          titleEl.style.fontWeight='700';
+          titleEl.className='kb-card-title';
           applyTruncatedTitle(titleEl, t.title);
           const metaEl=document.createElement('div');
           metaEl.className='subtle';
@@ -1649,14 +1729,14 @@
           const taskDiv = document.createElement('div');
           taskDiv.className = 'calendar-task';
           taskDiv.dataset.taskId = t.id;
-          applyTruncatedTitle(taskDiv, t.title, { extraTooltip: t.details });
-          // Append time if scheduled
+          let displayTitle = t.title || '';
           if(t.startTime){
             const dt = new Date(t.startTime);
             const hh = dt.getHours().toString().padStart(2,'0');
             const mm = dt.getMinutes().toString().padStart(2,'0');
-            taskDiv.textContent += ' (' + hh + ':' + mm + ')';
+            displayTitle = displayTitle ? `${displayTitle} (${hh}:${mm})` : `(${hh}:${mm})`;
           }
+          applyTruncatedTitle(taskDiv, displayTitle, { extraTooltip: t.details });
           taskDiv.draggable = true;
           taskDiv.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
