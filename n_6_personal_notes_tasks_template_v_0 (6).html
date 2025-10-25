@@ -31,8 +31,8 @@
     .wrap{
       width:100%;
       margin:0 auto;
-      max-width:min(1240px, calc(100vw - 64px));
-      padding:clamp(16px, 3vw, 32px);
+      max-width:min(1400px, calc(100vw - 40px));
+      padding:clamp(16px, 2.5vw, 28px);
     }
 
     /* --- Tab bar with status chips + gear --- */
@@ -1200,15 +1200,7 @@
           td.appendChild(span); tr.appendChild(td);
         });
         tbody.appendChild(tr);
-        // When clicking anywhere in this row (outside of interactive controls),
-        // open the edit modal for this task. This allows editing from the table view.
-        tr.addEventListener('click', (ev) => {
-          // Avoid triggering if the click originated from an input/select element
-          // or when text selection might be active. Only respond to clicks on cells.
-          if(ev.target && ev.target.closest('span.cell')){
-            openTaskModalForId(t.id);
-          }
-        });
+        // Table view is intended for inline editing only, so avoid launching the modal here.
       });
       // Header sort indicators
       document.querySelectorAll('#taskTable thead th').forEach(th=>{ th.classList.remove('sort-asc','sort-desc'); if(th.dataset.key===sortKey) th.classList.add(sortDir==='asc'?'sort-asc':'sort-desc'); });
