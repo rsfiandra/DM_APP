@@ -184,6 +184,30 @@
       font-weight:700;
       color:var(--muted);
     }
+    .calendar-cell.today{
+      background:rgba(255,138,0,0.12);
+      border-color:rgba(255,138,0,0.45);
+    }
+    .calendar-cell.today .date-num{ color:var(--brand1); }
+    .calendar-cell.selected{
+      box-shadow:inset 0 0 0 2px var(--brand2);
+    }
+    .calendar-mini{
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .calendar-mini .calendar-cell{
+      min-height:60px;
+      font-size:12px;
+    }
+    .calendar-mini .day-of-week{
+      font-size:11px;
+      padding:3px;
+    }
+    .calendar-mini .calendar-cell .date-num{
+      font-size:11px;
+    }
     .calendar-task{
       font-size:12px;
       margin:2px 0;
@@ -201,6 +225,30 @@
     }
 
     /* Day (My Day) */
+    .day-layout{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .day-main{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .day-sidebar{
+      flex:0 0 280px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .day-sidebar-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .day-sidebar-header .btn{flex:0 0 auto;padding:4px 8px;}
     .day-unscheduled{
       margin-bottom:8px;
       display:flex;
@@ -241,9 +289,45 @@
       border-color:var(--kanban-drop);
       background:var(--kanban-drop);
     }
+    .day-unscheduled .calendar-task,
+    .day-grid .calendar-task{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:2px;
+      white-space:normal;
+    }
+    .calendar-task-title{font-weight:600;color:var(--ink);}
+    .calendar-task-note{font-size:12px;color:var(--muted);}
+    .calendar-task-meta{font-size:12px;color:var(--muted);}
+
+    .task-details{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.4;
+      color:var(--ink);
+      white-space:pre-wrap;
+    }
+
+    .kanban-detail{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      white-space:pre-wrap;
+    }
+    .checkbox-label{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-weight:700;
+      font-size:12px;
+      color:#475569;
+    }
+    .checkbox-label input{width:16px;height:16px;}
 
     /* Responsive (SharePoint mobile safe-area aware) */
     @media (max-width: 900px){ .row-3{grid-template-columns:1fr} }
+    @media (max-width: 900px){ .day-sidebar{display:none;} .day-layout{flex-direction:column;} }
     @media (max-width: 700px){ .notes-wrap{grid-template-columns:1fr} }
     @media (max-width: 600px){
       .wrap{width:calc(100% + var(--sp-left-offset,0px) + var(--sp-right-offset,0px));padding-left:max(var(--sp-mobile-gutter),env(safe-area-inset-left,0px));padding-right:max(var(--sp-mobile-gutter),env(safe-area-inset-right,0px));margin-left:calc(-1 * var(--sp-left-offset,0px));margin-right:calc(-1 * var(--sp-right-offset,0px))}
@@ -334,6 +418,9 @@
           <div class="field"><label>Due Date</label><input type="date" id="taskDueDate"></div>
         </div>
         <div class="row" style="margin-top:8px">
+          <div class="field"><label>Details</label><textarea id="taskDetails" rows="3" placeholder="Add more context"></textarea></div>
+        </div>
+        <div class="row" style="margin-top:8px">
           <div class="field"><label>Tags (toggle to select)</label>
             <div class="tag-chips" id="tagPalette"></div>
             <div class="toolbar">
@@ -381,6 +468,7 @@
                 <th data-key="priority">Priority</th>
                 <th data-key="dueDate">Due</th>
                 <th data-key="tags">Tags</th>
+                <th data-key="details">Details</th>
                 <th data-key="createdAt">Created</th>
               </tr>
             </thead>
@@ -407,9 +495,21 @@
     <section id="view-day" class="card" style="display:none">
       <div class="card-head"><span id="dayLabel">My Day</span></div>
       <div class="card-body">
-        <div style="margin-bottom:8px;font-weight:600;">Unscheduled tasks</div>
-        <div id="dayUnscheduled" class="day-unscheduled"></div>
-        <div class="day-grid" id="dayGrid" aria-label="Day schedule"></div>
+        <div class="day-layout">
+          <div class="day-main">
+            <div style="font-weight:600;">Unscheduled tasks</div>
+            <div id="dayUnscheduled" class="day-unscheduled"></div>
+            <div class="day-grid" id="dayGrid" aria-label="Day schedule"></div>
+          </div>
+          <aside class="day-sidebar" aria-label="Month overview">
+            <div class="day-sidebar-header">
+              <button class="btn" id="daySidebarPrev" aria-label="Previous month">&lt;</button>
+              <div id="daySidebarMonthLabel" style="font-weight:700"></div>
+              <button class="btn" id="daySidebarNext" aria-label="Next month">&gt;</button>
+            </div>
+            <div class="calendar-grid calendar-mini" id="daySidebarCalendar" aria-label="Mini calendar"></div>
+          </aside>
+        </div>
       </div>
     </section>
   </div>
@@ -426,6 +526,9 @@
             <option value="done">Done</option>
           </select>
         </div>
+        <div class="field">
+          <label class="checkbox-label"><input type="checkbox" id="modalCompleteToggle"> Mark complete</label>
+        </div>
         <div class="field"><label>Priority</label>
           <select id="modalPrioritySelect">
             <option value="1">P1</option>
@@ -435,6 +538,9 @@
         </div>
         <div class="field"><label>Due Date</label>
           <input type="date" id="modalDueDate"/>
+        </div>
+        <div class="field"><label>Details</label>
+          <textarea id="modalDetails" rows="4" placeholder="Add notes or context"></textarea>
         </div>
         <div class="field"><label>Tags</label>
           <div id="modalTagContainer" class="tag-chips"></div>
@@ -481,7 +587,16 @@
       settings:{theme:'regal'}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
-    function load(){ try{ const raw=localStorage.getItem(LSKEY); state = raw? JSON.parse(raw): defaultState(); }catch(e){ state=defaultState(); } if(!Array.isArray(state.tags)) state.tags=[]; if(!Array.isArray(state.tasks)) state.tasks=[]; }
+    function load(){
+      try{ const raw=localStorage.getItem(LSKEY); state = raw? JSON.parse(raw): defaultState(); }
+      catch(e){ state=defaultState(); }
+      if(!Array.isArray(state.tags)) state.tags=[];
+      if(!Array.isArray(state.tasks)) state.tasks=[];
+      state.tasks = state.tasks.filter(t => t && typeof t === 'object').map(t => {
+        if(typeof t.details !== 'string') t.details = '';
+        return t;
+      });
+    }
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
 
@@ -592,7 +707,8 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid();
+          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+          if(selectedDate) renderDay(selectedDate);
         });
         const span = document.createElement('span');
         span.className = 'note-text';
@@ -607,6 +723,7 @@
         // Drag-and-drop handlers
         div.addEventListener('dragstart', (e) => {
           dragNoteIndex = idx;
+          if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; }
         });
         div.addEventListener('dragover', (e) => {
           e.preventDefault();
@@ -619,17 +736,29 @@
           e.preventDefault();
           div.classList.remove('drag-over');
           const from = dragNoteIndex;
-          const to = parseInt(div.dataset.lineIndex, 10);
-          if(isNaN(from) || isNaN(to) || from === to) return;
+          let to = parseInt(div.dataset.lineIndex, 10);
+          if(isNaN(from) || isNaN(to)) return;
+          const rect = div.getBoundingClientRect();
+          const insertAfter = e.clientY > rect.top + rect.height / 2;
+          if(insertAfter) to += 1;
           const arr = String(state.notes||'').split(/\r?\n/);
+          if(from < 0 || from >= arr.length) return;
           const [moved] = arr.splice(from, 1);
-          arr.splice(to, 0, moved);
+          let insertIndex = Math.max(0, Math.min(arr.length, to));
+          if(insertIndex > from) insertIndex -= 1;
+          arr.splice(insertIndex, 0, moved);
           state.notes = arr.join('\n');
           notesInput.value = state.notes;
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid();
+          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+          if(selectedDate) renderDay(selectedDate);
+          dragNoteIndex = null;
+        });
+        div.addEventListener('dragend', () => {
+          dragNoteIndex = null;
+          div.classList.remove('drag-over');
         });
         notesPreview.appendChild(div);
       });
@@ -642,7 +771,8 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid();
+      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
     });
     // Add new checklist items via input and button
     const newItemInput = document.getElementById('newItemInput');
@@ -658,7 +788,8 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid();
+      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
     });
     newItemInput.addEventListener('keypress', (e) => {
       if(e.key === 'Enter'){
@@ -722,6 +853,29 @@
       return out;
     }
 
+    function getTodayDateStr(){
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth()+1).padStart(2,'0');
+      const d = String(now.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+    function parseDateInput(value){
+      if(!value) return null;
+      const parts = value.split('-');
+      if(parts.length!==3) return null;
+      const yy = parseInt(parts[0],10);
+      const mm = parseInt(parts[1],10)-1;
+      const dd = parseInt(parts[2],10);
+      if(Number.isNaN(yy) || Number.isNaN(mm) || Number.isNaN(dd)) return null;
+      const dt = new Date(yy, mm, dd);
+      const ts = dt.getTime();
+      return Number.isNaN(ts) ? null : ts;
+    }
+    function getTodayTimestamp(){
+      const ts = parseDateInput(getTodayDateStr());
+      return ts != null ? ts : Date.now();
+    }
     // Format a timestamp (ms) into YYYY-MM-DD string
     function formatDate(ts){
       if(!ts) return '';
@@ -749,8 +903,9 @@
           tags: Array.isArray(prev?.tags) ? prev.tags : [],
           checklist: [],
           createdAt: prev?.createdAt || Date.now(),
-          dueDate: prev?.dueDate ?? null,
+          dueDate: prev ? (prev.dueDate ?? null) : getTodayTimestamp(),
           startTime: prev?.startTime ?? null,
+          details: typeof prev?.details === 'string' ? prev.details : '',
           fromNotes: true,
           noteKey: key
         });
@@ -774,6 +929,9 @@
     // ---------- Tasks list / create ----------
     const taskListEl = document.getElementById('taskList');
     const checkUl = document.getElementById('checklist');
+    const taskDueInput = document.getElementById('taskDueDate');
+    if(taskDueInput){ taskDueInput.value = getTodayDateStr(); }
+    const taskDetailsInput = document.getElementById('taskDetails');
     function getSelectedTags(){ return Array.from(tagPaletteEl.querySelectorAll('.chip-tag.selected')).map(el=>el.dataset.tag); }
     function addChecklistItem(text){ const li=document.createElement('li'); const id='c_'+Math.random().toString(36).slice(2); li.innerHTML = `<label><input type="checkbox" data-id="${id}"> <span>${esc(text)}</span></label>`; checkUl.appendChild(li); }
     document.getElementById('btnAddCheck').addEventListener('click', ()=>{ const t=document.getElementById('checkItem').value.trim(); if(!t) return; addChecklistItem(t); document.getElementById('checkItem').value=''; });
@@ -782,23 +940,24 @@
       const title=(document.getElementById('taskTitle').value||'').trim(); if(!title){ alert('Enter a title'); return; }
       const status=document.getElementById('taskStatus').value;
       const priority=Number(document.getElementById('taskPriority').value)||2;
-      const dueInput = document.getElementById('taskDueDate');
-      const dueVal = (dueInput && dueInput.value) ? dueInput.value : '';
-      const dueDate = dueVal? new Date(dueVal).getTime() : null;
+      const dueVal = taskDueInput && taskDueInput.value ? taskDueInput.value : getTodayDateStr();
+      let dueDate = parseDateInput(dueVal);
+      if(dueDate == null){ dueDate = getTodayTimestamp(); }
+      const details = taskDetailsInput ? taskDetailsInput.value.trim() : '';
       const tags=getSelectedTags();
       const checklist = Array.from(checkUl.querySelectorAll('input[type="checkbox"]')).map(cb=>({ t: cb.nextElementSibling.textContent, done: cb.checked }));
-      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null };
+      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null, details };
       state.tasks.unshift(task);
       // reset form
       document.getElementById('taskTitle').value='';
-      // reset due date input if exists
-      if(dueInput) dueInput.value = '';
+      if(taskDueInput) taskDueInput.value = getTodayDateStr();
+      if(taskDetailsInput) taskDetailsInput.value = '';
       document.getElementById('checkItem').value='';
       checkUl.innerHTML='';
       tagPaletteEl.querySelectorAll('.chip-tag.selected').forEach(x=>x.classList.remove('selected'));
-      markDirty(); renderTasks(); renderKanban(); renderGrid();
+      markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate);
     });
-    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); }});
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }});
 
     function renderTasks(){
       document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
@@ -831,6 +990,7 @@
         meta.textContent = metaText; top.appendChild(meta);
         card.appendChild(top);
         if(t.tags && t.tags.length){ const row=document.createElement('div'); row.className='tag-chips'; row.style.marginTop='6px'; t.tags.forEach(tag=>{ const pill=document.createElement('span'); pill.className='pill'; pill.textContent=tag; row.appendChild(pill); }); card.appendChild(row); }
+        if(t.details){ const detail=document.createElement('div'); detail.className='task-details'; detail.textContent=t.details; card.appendChild(detail); }
         if(t.checklist && t.checklist.length){ const ul=document.createElement('ul'); ul.className='checklist'; t.checklist.forEach((c,i)=>{ const li=document.createElement('li'); li.innerHTML=`<label><input type="checkbox" ${c.done?'checked':''}> ${esc(c.t)}</label>`; li.querySelector('input').addEventListener('change', (e)=>{ c.done=e.target.checked; markDirty(); }); ul.appendChild(li); }); card.appendChild(ul); }
         // Clicking on the card (except buttons/selects) opens the edit modal for this task
         card.addEventListener('click', (ev) => {
@@ -862,9 +1022,10 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid();
+          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+          if(selectedDate) renderDay(selectedDate);
         });
-        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); });
+        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); if(selectedDate) renderDay(selectedDate); });
         bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
         taskListEl.appendChild(card);
       });
@@ -886,7 +1047,19 @@
           c.className='kb-card';
           c.draggable=true;
           c.addEventListener('dragstart',(e)=>{ e.dataTransfer.setData('text/plain', t.id); });
-          c.innerHTML = `<div style="font-weight:700">${esc(t.title)}</div><div class="subtle">P${t.priority}${t.tags?.length? ' • '+t.tags.join(', '):''}${t.dueDate ? ' • Due '+formatDate(t.dueDate) : ''}</div>`;
+          const titleEl=document.createElement('div');
+          titleEl.style.fontWeight='700';
+          titleEl.textContent=t.title;
+          const metaEl=document.createElement('div');
+          metaEl.className='subtle';
+          let metaText = `P${t.priority}`;
+          if(t.tags?.length) metaText += ' • ' + t.tags.join(', ');
+          if(t.dueDate) metaText += ' • Due ' + formatDate(t.dueDate);
+          metaEl.textContent = metaText;
+          c.appendChild(titleEl);
+          c.appendChild(metaEl);
+          if(t.details){ const detailEl=document.createElement('div'); detailEl.className='kanban-detail'; detailEl.textContent=t.details; c.appendChild(detailEl); }
+          if(t.details) c.title = t.details;
           // Click opens edit modal
           c.addEventListener('click', (ev) => {
             ev.stopPropagation();
@@ -919,6 +1092,7 @@
           {k:'priority', v:'P'+(t.priority||'')},
           {k:'dueDate', v: t.dueDate ? formatDate(t.dueDate) : ''},
           {k:'tags', v:(t.tags||[]).join(', ')},
+          {k:'details', v:t.details||''},
           {k:'createdAt', v:new Date(t.createdAt||Date.now()).toLocaleString()}
         ];
         cols.forEach((c,colIdx)=>{
@@ -957,25 +1131,20 @@
       } else if(field === 'title'){
         task.title = raw || '(untitled)';
       } else if(field === 'dueDate'){
-        // Parse as YYYY-MM-DD (local date). Using Date.parse can shift dates due to UTC conversion.
         if(raw){
-          const parts = raw.split('-');
-          if(parts.length === 3){
-            const yy = parseInt(parts[0],10);
-            const mm = parseInt(parts[1],10) - 1;
-            const dd = parseInt(parts[2],10);
-            const ts = new Date(yy, mm, dd).getTime();
-            task.dueDate = ts;
-          } else {
-            task.dueDate = null;
-          }
+          const ts = parseDateInput(raw);
+          task.dueDate = ts != null ? ts : null;
         } else {
           task.dueDate = null;
         }
+      } else if(field === 'details'){
+        task.details = raw;
       }
       markDirty();
       renderKanban();
       renderTasks();
+      renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
     }
     function handleCellKey(e, cell){ const key=e.key.toLowerCase(); const row=parseInt(cell.dataset.row,10); const col=parseInt(cell.dataset.col,10); const table=document.getElementById('gridBody'); const maxR=table.rows.length-1; const maxC=table.rows[0]? table.rows[0].cells.length-1:0; const move=(r,c)=>{ const next = table.querySelector(`span.cell[data-row="${r}"][data-col="${c}"]`); if(next){ e.preventDefault(); next.focus(); selectAll(next); } };
       if(key==='arrowright'){ move(row, Math.min(maxC, col+1)); }
@@ -1003,93 +1172,114 @@
     const modalAddTag = document.getElementById('modalAddTag');
     const modalSaveBtn = document.getElementById('modalSaveBtn');
     const modalCancelBtn = document.getElementById('modalCancelBtn');
+    const modalCompleteToggle = document.getElementById('modalCompleteToggle');
+    const modalDetails = document.getElementById('modalDetails');
     let currentModalTask = null;
+    function populateTaskModal(task){
+      if(!task) return;
+      currentModalTask = task;
+      if(!Array.isArray(task.tags)) task.tags = [];
+      const statusVal = task.status || 'backlog';
+      modalStatusSelect.disabled = false;
+      modalStatusSelect.value = statusVal;
+      modalStatusSelect.dataset.prevStatus = statusVal === 'done' ? 'backlog' : statusVal;
+      if(modalCompleteToggle){
+        modalCompleteToggle.checked = statusVal === 'done';
+        modalStatusSelect.disabled = modalCompleteToggle.checked;
+        if(modalCompleteToggle.checked){
+          modalStatusSelect.value = 'done';
+        }
+      }
+      modalPrioritySelect.value = String(task.priority || 2);
+      modalTagContainer.innerHTML = '';
+      const seen = new Set();
+      const combined = [];
+      (state.tags || []).forEach(tag => {
+        if(tag && !seen.has(tag)){ seen.add(tag); combined.push(tag); }
+      });
+      (task.tags || []).forEach(tag => {
+        if(tag && !seen.has(tag)){ seen.add(tag); combined.push(tag); }
+      });
+      combined.forEach(tag => {
+        const chip=document.createElement('button');
+        chip.type='button';
+        chip.className='chip-tag';
+        chip.textContent=tag;
+        chip.dataset.tag=tag;
+        if(task.tags && task.tags.includes(tag)) chip.classList.add('selected');
+        chip.addEventListener('click', () => { chip.classList.toggle('selected'); });
+        modalTagContainer.appendChild(chip);
+      });
+      modalNewTagInput.value = '';
+      if(modalDueDate){
+        modalDueDate.value = task.dueDate ? formatDate(task.dueDate) : '';
+      }
+      if(modalDetails){
+        modalDetails.value = task.details || '';
+      }
+      taskModal.style.display = 'flex';
+    }
+
     function openTaskModalByKey(noteKey){
       const task = state.tasks.find(t => t.noteKey === noteKey);
       if(!task) return;
-      currentModalTask = task;
-      // populate selects
-      modalStatusSelect.value = task.status || 'backlog';
-      modalPrioritySelect.value = String(task.priority || 2);
-      // build tag chips
-      modalTagContainer.innerHTML = '';
-      state.tags.forEach(tag => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip-tag';
-        chip.textContent = tag;
-        chip.dataset.tag = tag;
-        if(task.tags && task.tags.includes(tag)) chip.classList.add('selected');
-        chip.addEventListener('click', () => {
-          chip.classList.toggle('selected');
-        });
-        modalTagContainer.appendChild(chip);
-      });
-      // clear new tag input
-      modalNewTagInput.value = '';
-      // set due date value
-      if(typeof modalDueDate !== 'undefined'){
-        if(task.dueDate){
-          const dt = new Date(task.dueDate);
-          modalDueDate.value = dt.toISOString().split('T')[0];
-        } else {
-          modalDueDate.value = '';
-        }
-      }
-      // show modal
-      taskModal.style.display = 'flex';
+      populateTaskModal(task);
     }
 
     // Open the task editing modal for a given task by its id (used outside of notes)
     function openTaskModalForId(taskId){
       const task = state.tasks.find(t => t.id === taskId);
       if(!task) return;
-      currentModalTask = task;
-      // populate selects
-      modalStatusSelect.value = task.status || 'backlog';
-      modalPrioritySelect.value = String(task.priority || 2);
-      // build tag chips
-      modalTagContainer.innerHTML = '';
-      state.tags.forEach(tag => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip-tag';
-        chip.textContent = tag;
-        chip.dataset.tag = tag;
-        if(task.tags && task.tags.includes(tag)) chip.classList.add('selected');
-        chip.addEventListener('click', () => {
-          chip.classList.toggle('selected');
-        });
-        modalTagContainer.appendChild(chip);
-      });
-      // clear new tag input
-      modalNewTagInput.value = '';
-      // set due date value
-      if(typeof modalDueDate !== 'undefined'){
-        if(task.dueDate){
-          const dt = new Date(task.dueDate);
-          modalDueDate.value = dt.toISOString().split('T')[0];
+      populateTaskModal(task);
+    }
+
+    if(modalCompleteToggle){
+      modalCompleteToggle.addEventListener('change', () => {
+        if(modalCompleteToggle.checked){
+          if(modalStatusSelect.value !== 'done'){
+            modalStatusSelect.dataset.prevStatus = modalStatusSelect.value || 'backlog';
+          }
+          modalStatusSelect.value = 'done';
+          modalStatusSelect.disabled = true;
         } else {
-          modalDueDate.value = '';
+          modalStatusSelect.disabled = false;
+          const prev = modalStatusSelect.dataset.prevStatus || 'backlog';
+          modalStatusSelect.value = prev;
+        }
+      });
+    }
+    modalStatusSelect.addEventListener('change', () => {
+      if(modalStatusSelect.value === 'done'){
+        if(modalCompleteToggle){
+          modalCompleteToggle.checked = true;
+          modalStatusSelect.disabled = true;
+        }
+      } else {
+        modalStatusSelect.dataset.prevStatus = modalStatusSelect.value;
+        if(modalCompleteToggle){
+          modalCompleteToggle.checked = false;
         }
       }
-      // show modal
-      taskModal.style.display = 'flex';
-    }
+    });
     function closeTaskModal(){
       taskModal.style.display = 'none';
       currentModalTask = null;
     }
     modalSaveBtn.addEventListener('click', () => {
       if(!currentModalTask){ closeTaskModal(); return; }
-      currentModalTask.status = modalStatusSelect.value;
-      currentModalTask.priority = Number(modalPrioritySelect.value);
-      currentModalTask.tags = Array.from(modalTagContainer.querySelectorAll('.chip-tag.selected')).map(el => el.dataset.tag);
-      // update due date
-      if(typeof modalDueDate !== 'undefined'){
-        currentModalTask.dueDate = modalDueDate.value ? new Date(modalDueDate.value).getTime() : null;
+      const isComplete = modalCompleteToggle && modalCompleteToggle.checked;
+      const statusChoice = modalStatusSelect.value || 'backlog';
+      currentModalTask.status = isComplete ? 'done' : statusChoice;
+      modalStatusSelect.dataset.prevStatus = currentModalTask.status === 'done' ? 'backlog' : currentModalTask.status;
+      currentModalTask.priority = Number(modalPrioritySelect.value) || 2;
+      const selectedTags = Array.from(modalTagContainer.querySelectorAll('.chip-tag.selected')).map(el => el.dataset.tag);
+      currentModalTask.tags = selectedTags;
+      if(modalDetails){
+        currentModalTask.details = modalDetails.value.trim();
       }
-      // add new tag if specified
+      if(modalDueDate){
+        currentModalTask.dueDate = modalDueDate.value ? parseDateInput(modalDueDate.value) : null;
+      }
       const newName = (modalNewTagInput.value || '').trim();
       if(newName){
         if(!state.tags.includes(newName)){
@@ -1102,7 +1292,8 @@
       modalNewTagInput.value = '';
       markDirty();
       renderTagPalette();
-      renderTasks(); renderKanban(); renderGrid();
+      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
       closeTaskModal();
     });
     modalCancelBtn.addEventListener('click', () => {
@@ -1160,6 +1351,8 @@
     // Track the currently displayed month for the calendar. Always represents the first day of that month.
     let calendarMonth = new Date();
     calendarMonth.setDate(1);
+    let daySidebarMonth = new Date();
+    daySidebarMonth.setDate(1);
 
     function zeroPad(n){ return String(n).padStart(2, '0'); }
 
@@ -1170,6 +1363,7 @@
       const grid = document.getElementById('calendarGrid');
       if(!grid) return;
       grid.innerHTML = '';
+      const today = new Date(); today.setHours(0,0,0,0);
       // Day of week header
       const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       dayNames.forEach(name => {
@@ -1209,7 +1403,10 @@
           cellMonth = month;
           cellYear = year;
         }
+        const cellDate = new Date(cellYear, cellMonth, dateNum);
         const dateStr = cellYear + '-' + zeroPad(cellMonth+1) + '-' + zeroPad(dateNum);
+        if(isSameDate(cellDate, today)) cell.classList.add('today');
+        if(selectedDate && selectedDate === dateStr) cell.classList.add('selected');
         // Date number label
         const dateNumEl = document.createElement('div');
         dateNumEl.className = 'date-num';
@@ -1240,6 +1437,7 @@
             const mm = dt.getMinutes().toString().padStart(2,'0');
             taskDiv.textContent += ' (' + hh + ':' + mm + ')';
           }
+          if(t.details){ taskDiv.title = t.details; }
           taskDiv.draggable = true;
           taskDiv.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
@@ -1256,6 +1454,9 @@
           // Only react if clicking cell or date label (not tasks)
           if(e.target !== cell && e.target !== dateNumEl) return;
           selectedDate = dateStr;
+          calendarMonth = new Date(cellYear, cellMonth, 1);
+          daySidebarMonth = new Date(cellYear, cellMonth, 1);
+          renderCalendar();
           showView('day');
         });
         // Drag-over and drop behaviour
@@ -1299,6 +1500,70 @@
       const monthLabel = document.getElementById('calendarMonthLabel');
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       monthLabel.textContent = monthNames[month] + ' ' + year;
+      if(document.getElementById('daySidebarCalendar')){
+        renderDaySidebarCalendar();
+      }
+    }
+
+    function renderDaySidebarCalendar(){
+      const grid = document.getElementById('daySidebarCalendar');
+      const label = document.getElementById('daySidebarMonthLabel');
+      if(!grid || !label) return;
+      grid.innerHTML = '';
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      dayNames.forEach(name => {
+        const div=document.createElement('div');
+        div.className='day-of-week';
+        div.textContent=name;
+        grid.appendChild(div);
+      });
+      const year = daySidebarMonth.getFullYear();
+      const month = daySidebarMonth.getMonth();
+      const first = new Date(year, month, 1);
+      const firstDay = first.getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevMonthDays = new Date(year, month, 0).getDate();
+      const today = new Date(); today.setHours(0,0,0,0);
+      for(let i=0;i<42;i++){
+        const cell=document.createElement('div');
+        cell.className='calendar-cell';
+        let dateNum, cellMonth, cellYear;
+        if(i < firstDay){
+          dateNum = prevMonthDays - firstDay + 1 + i;
+          cellMonth = month - 1;
+          cellYear = year;
+          if(cellMonth < 0){ cellMonth = 11; cellYear--; }
+          cell.classList.add('out-month');
+        } else if(i >= firstDay + daysInMonth){
+          dateNum = i - (firstDay + daysInMonth) + 1;
+          cellMonth = month + 1;
+          cellYear = year;
+          if(cellMonth > 11){ cellMonth = 0; cellYear++; }
+          cell.classList.add('out-month');
+        } else {
+          dateNum = i - firstDay + 1;
+          cellMonth = month;
+          cellYear = year;
+        }
+        const cellDate = new Date(cellYear, cellMonth, dateNum);
+        const dateStr = cellYear + '-' + zeroPad(cellMonth+1) + '-' + zeroPad(dateNum);
+        if(isSameDate(cellDate, today)) cell.classList.add('today');
+        if(selectedDate && selectedDate === dateStr) cell.classList.add('selected');
+        const dateNumEl=document.createElement('div');
+        dateNumEl.className='date-num';
+        dateNumEl.textContent=dateNum;
+        cell.appendChild(dateNumEl);
+        cell.addEventListener('click', () => {
+          selectedDate = dateStr;
+          daySidebarMonth = new Date(cellYear, cellMonth, 1);
+          calendarMonth = new Date(cellYear, cellMonth, 1);
+          renderDay(selectedDate);
+          renderCalendar();
+        });
+        grid.appendChild(cell);
+      }
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      label.textContent = monthNames[month] + ' ' + year;
     }
 
     // Change the calendar month by delta months (positive or negative)
@@ -1309,6 +1574,18 @@
     // Add navigation event listeners
     document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
     document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
+    const daySidebarPrevBtn = document.getElementById('daySidebarPrev');
+    const daySidebarNextBtn = document.getElementById('daySidebarNext');
+    if(daySidebarPrevBtn) daySidebarPrevBtn.addEventListener('click', () => {
+      daySidebarMonth = new Date(daySidebarMonth.getFullYear(), daySidebarMonth.getMonth() - 1, 1);
+      calendarMonth = new Date(daySidebarMonth.getFullYear(), daySidebarMonth.getMonth(), 1);
+      renderCalendar();
+    });
+    if(daySidebarNextBtn) daySidebarNextBtn.addEventListener('click', () => {
+      daySidebarMonth = new Date(daySidebarMonth.getFullYear(), daySidebarMonth.getMonth() + 1, 1);
+      calendarMonth = new Date(daySidebarMonth.getFullYear(), daySidebarMonth.getMonth(), 1);
+      renderCalendar();
+    });
 
     // Utility function: check if two dates share the same year, month and day
     function isSameDate(d1, d2){
@@ -1328,6 +1605,8 @@
       const mm = parseInt(parts[1],10);
       const dd = parseInt(parts[2],10);
       const dtBase = new Date(yy, mm-1, dd);
+      daySidebarMonth = new Date(yy, mm-1, 1);
+      renderDaySidebarCalendar();
       // Update header label
       dayLabel.textContent = dtBase.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
       // Clear containers
@@ -1365,11 +1644,23 @@
       uns.forEach(t => {
         const div = document.createElement('div');
         div.className = 'calendar-task';
-        div.textContent = t.title;
-        // show due date if task has dueDate not this day
+        const titleLine=document.createElement('div');
+        titleLine.className='calendar-task-title';
+        titleLine.textContent=t.title;
+        div.appendChild(titleLine);
         if(t.dueDate && !isSameDate(new Date(t.dueDate), dtBase)){
-          div.textContent += ' (' + formatDate(t.dueDate) + ')';
+          const meta=document.createElement('div');
+          meta.className='calendar-task-meta';
+          meta.textContent = 'Due ' + formatDate(t.dueDate);
+          div.appendChild(meta);
         }
+        if(t.details){
+          const note=document.createElement('div');
+          note.className='calendar-task-note';
+          note.textContent=t.details;
+          div.appendChild(note);
+        }
+        if(t.details) div.title = t.details;
         div.draggable = true;
         div.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', t.id);
@@ -1431,7 +1722,17 @@
         list.forEach(t => {
           const div = document.createElement('div');
           div.className = 'calendar-task';
-          div.textContent = t.title;
+          const titleLine=document.createElement('div');
+          titleLine.className='calendar-task-title';
+          titleLine.textContent=t.title;
+          div.appendChild(titleLine);
+          if(t.details){
+            const note=document.createElement('div');
+            note.className='calendar-task-note';
+            note.textContent=t.details;
+            div.appendChild(note);
+          }
+          if(t.details) div.title = t.details;
           div.draggable = true;
           div.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
@@ -1512,7 +1813,7 @@
     document.addEventListener('readystatechange', ()=>{ if(document.readyState==='complete'){ applySharePointCanvasOffsets(); setTimeout(applySharePointCanvasOffsets, 150); setTimeout(applySharePointCanvasOffsets, 400); } });
 
     // ---------- Init ----------
-    function renderAll(){ renderNotes(); syncNotesToTasks(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); }
+    function renderAll(){ renderNotes(); syncNotesToTasks(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }
     load(); initTheme(); buildSwatches(); renderAll(); setSaved(true); showView('notes');
   })();
   </script>
