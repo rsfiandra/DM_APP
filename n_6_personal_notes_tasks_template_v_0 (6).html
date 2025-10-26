@@ -2137,9 +2137,7 @@
             clearTimeout(clickTimer);
             clickTimer = null;
           }
-          taskEl.dataset.preventModal = '1';
-          beginInlineEdit(taskId, taskEl);
-          setTimeout(() => { delete taskEl.dataset.preventModal; }, 250);
+          openTaskModalForId(taskId);
         });
       }
       // Update header label
@@ -2160,20 +2158,26 @@
       const uns = [];
       const schedMap = {};
       tasksForDay.forEach(t => {
-        const dueMatch = t.dueDate ? isSameDate(new Date(t.dueDate), dtBase) : false;
-        if(t.startTime != null){
+        const dueMatch = t.dueDate != null ? isSameDate(new Date(t.dueDate), dtBase) : false;
+        const hasStart = Number.isFinite(t.startTime);
+        if(hasStart){
           const st = new Date(t.startTime);
-          if(!dueMatch || st.getHours() < 6 || (st.getHours() === 16 && st.getMinutes() > 30) || st.getHours() > 16){
-            uns.push(t);
-          } else {
-            const key = zeroPad(st.getHours()) + ':' + zeroPad(st.getMinutes());
+          const startMatchesDay = isSameDate(st, dtBase);
+          const hour = st.getHours();
+          const minute = st.getMinutes();
+          const inWindow = hour >= 6 && (hour < 16 || (hour === 16 && minute <= 30));
+          if(startMatchesDay && inWindow){
+            const key = zeroPad(hour) + ':' + zeroPad(minute);
             if(!schedMap[key]) schedMap[key] = [];
             schedMap[key].push(t);
+            return;
           }
-        } else {
-          // No startTime: treat as unscheduled. Only include if due date matches or dueDate is null.
-          if(dueMatch || !t.dueDate) uns.push(t);
+          // Tasks with a start time that doesn't align with the visible window fall back to the unscheduled list.
+          uns.push(t);
+          return;
         }
+        // No start time: treat as unscheduled. Only include if due date matches or dueDate is null.
+        if(dueMatch || !t.dueDate) uns.push(t);
       });
       function appendUnscheduledCard(t){
         const div = document.createElement('div');
