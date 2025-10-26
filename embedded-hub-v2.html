@@ -6,145 +6,433 @@
 <title>N6 Hub v2 — Tabs, Weather, Notes, Tasks</title>
 <style>
   :root{
-    --bg: #0b1020;
-    --panel:#0f172a;
-    --muted:#91a0c8;
-    --text:#e5ebff;
-    --brand1:#7c3aed; --brand2:#2563eb; --brand3:#0ea5e9;
-    --ring:#334155; --card:#111a33;
+    --bg:#050914;
+    --panel:#101a2f;
+    --card:#14213b;
+    --muted:#9fb4d8;
+    --text:#f4f7ff;
+    --brand1:#8b5cf6;
+    --brand2:#38bdf8;
+    --brand3:#22d3ee;
+    --ring:#1f2c46;
     --ok:#16a34a; --warn:#d97706; --bad:#ef4444;
-    --shadow: 0 10px 30px rgba(0,0,0,.35);
-    --grad: linear-gradient(135deg,var(--brand1),var(--brand2));
+    --shadow: 0 24px 60px rgba(5,9,20,.55);
+    --grad: linear-gradient(135deg,var(--brand1),var(--brand3));
   }
   html.light {
-    --bg:#eef2ff; --panel:#ffffff; --text:#0b1020; --muted:#4b5563;
-    --ring:#e5e7eb; --card:#f8fafc; --shadow: 0 10px 24px rgba(0,0,0,.12);
+    --bg:#f4f6fb;
+    --panel:#ffffff;
+    --card:#f7f9fc;
+    --muted:#626a7f;
+    --text:#111a2f;
+    --ring:#d9e1f2;
+    --shadow: 0 20px 45px rgba(15,23,42,.08);
+    --brand1:#6366f1;
+    --brand2:#3b82f6;
+    --brand3:#0ea5e9;
+    --grad: linear-gradient(135deg, var(--brand1), var(--brand2));
   }
   * { box-sizing: border-box; }
   body {
-    margin:0; background: radial-gradient(1200px 700px at 10% -10%, #1e263f 0, transparent 60%),
-                       radial-gradient(900px 600px at 100% 0, #2a2157 0, transparent 50%),
-                       var(--bg);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    margin:0;
+    background:
+      radial-gradient(1200px 800px at -10% -20%, color-mix(in srgb, var(--brand2) 26%, transparent) 0, transparent 70%),
+      radial-gradient(900px 600px at 110% -10%, color-mix(in srgb, var(--brand1) 22%, transparent) 0, transparent 65%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg) 86%, #01030a 14%), color-mix(in srgb, var(--bg) 92%, #030615 8%));
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     color: var(--text);
+  }
+  html.light body{
+    background:
+      radial-gradient(1100px 720px at 0% -10%, color-mix(in srgb, var(--brand2) 14%, transparent) 0, transparent 68%),
+      radial-gradient(900px 600px at 100% -20%, color-mix(in srgb, var(--brand1) 12%, transparent) 0, transparent 62%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, #ffffff 4%), color-mix(in srgb, var(--bg) 94%, #e7ebf7 6%));
   }
   .app {
     min-height: 100vh; display:flex; flex-direction:column; gap:16px;
     padding: 18px;
   }
   header {
-    display:flex; align-items:center; gap:12px; padding:10px 14px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 22%, transparent),
-                                      color-mix(in srgb, var(--brand2) 22%, transparent));
-    border:1px solid var(--ring); border-radius:16px; box-shadow: var(--shadow);
+    display:flex; align-items:center; gap:12px; padding:12px 16px;
+    background: linear-gradient(120deg,
+      color-mix(in srgb, var(--panel) 70%, var(--brand1) 30%),
+      color-mix(in srgb, var(--panel) 70%, var(--brand3) 30%));
+    border:1px solid color-mix(in srgb, var(--ring) 70%, transparent);
+    border-radius:18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
   }
   .logo{
-    background: var(--grad); color:white; font-weight:800;
-    padding:10px 14px; border-radius:12px; letter-spacing:.5px;
+    background: var(--grad);
+    color:#050914;
+    font-weight:800;
+    padding:10px 16px;
+    border-radius:14px;
+    letter-spacing:.6px;
+    box-shadow: 0 10px 20px rgba(34,211,238,.25);
   }
   .grow{ flex:1 }
   .btn{
-    appearance:none; border:1px solid var(--ring); color:var(--text);
-    background: color-mix(in srgb, var(--panel) 92%, var(--brand3) 8%);
-    border-radius:12px; padding:9px 12px; cursor:pointer; font-size:14px;
+    appearance:none;
+    border:1px solid color-mix(in srgb, var(--ring) 70%, transparent);
+    color:var(--text);
+    background: color-mix(in srgb, var(--panel) 82%, var(--brand2) 18%);
+    border-radius:12px;
+    padding:9px 12px;
+    cursor:pointer;
+    font-size:14px;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
   }
-  .btn:hover{ filter:brightness(1.08) }
-  .btn.brand{ background: var(--grad); border-color: transparent; color:white; }
-  .btn.ghost{ background:transparent }
+  .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(34,211,238,.22);
+    background: color-mix(in srgb, var(--panel) 70%, var(--brand2) 30%);
+  }
+  .btn:focus-visible{
+    outline:2px solid var(--brand2);
+    outline-offset:2px;
+  }
+  .btn.brand{
+    background: var(--grad);
+    border-color: transparent;
+    color:#050914;
+    font-weight:600;
+    box-shadow: 0 10px 22px rgba(139,92,246,.32);
+  }
+  .btn.brand:hover{
+    box-shadow: 0 14px 26px rgba(139,92,246,.4);
+  }
+  .btn.ghost{
+    background: color-mix(in srgb, var(--panel) 90%, transparent 10%);
+  }
   .tabs{
     display:flex; gap:8px; flex-wrap:wrap;
-    background: color-mix(in srgb, var(--panel) 86%, black 14%);
-    border:1px solid var(--ring); border-radius:14px; padding:10px; box-shadow: var(--shadow);
+    background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    border-radius:16px;
+    padding:12px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
   }
   .chip{
-    padding:8px 12px; border-radius:999px; border:1px solid var(--ring);
-    cursor:pointer; font-weight:600; font-size:14px;
-    background: color-mix(in srgb, var(--panel) 85%, var(--brand2) 15%);
-    color: var(--text); opacity:.75;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    cursor:pointer;
+    font-weight:600;
+    font-size:14px;
+    background: color-mix(in srgb, var(--panel) 78%, var(--brand3) 22%);
+    color: color-mix(in srgb, var(--text) 86%, #ffffff 14%);
+    opacity:.85;
+    transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
   }
-  .chip.active{ background: var(--grad); border-color: transparent; opacity:1; color:#fff; }
+  .chip:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(34,211,238,.2);
+  }
+  .chip.active{
+    background: var(--grad);
+    border-color: transparent;
+    opacity:1;
+    color:#050914;
+    box-shadow: 0 10px 24px rgba(139,92,246,.35);
+  }
   .page{
-    background: color-mix(in srgb, var(--panel) 92%, black 8%);
-    border:1px solid var(--ring); border-radius:16px; padding:14px; box-shadow: var(--shadow);
+    background: color-mix(in srgb, var(--panel) 95%, var(--bg) 5%);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:20px;
+    padding:18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
   }
   .grid{
-    display:grid; gap:14px; grid-template-columns: repeat(12, 1fr);
+    position:relative;
+    display:grid;
+    gap:16px;
+    grid-template-columns: repeat(12, 1fr);
+    background-image: none;
+    background-size: 24px 24px;
+  }
+  .grid.editing{
+    background-image: radial-gradient(circle at 1px 1px,
+      color-mix(in srgb, var(--brand2) 55%, transparent) 0,
+      color-mix(in srgb, var(--brand2) 55%, transparent) 2px,
+      transparent 0);
   }
   .card{
     grid-column: span 6; min-height: 380px;
-    background: var(--card); border:1px solid var(--ring); border-radius:14px; overflow:hidden;
-    display:flex; flex-direction:column;
+    background: color-mix(in srgb, var(--card) 92%, #000 8%);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:16px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    box-shadow: 0 18px 36px rgba(5,9,20,.45);
   }
   @media (max-width: 1200px){ .card{ grid-column: span 12; } }
   .card-h{
-    padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand2) 15%, transparent),
-                                      color-mix(in srgb, var(--brand1) 15%, transparent));
-    color:white; font-weight:600;
+    padding:12px 14px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:space-between;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--card) 60%, var(--brand2) 40%),
+      color-mix(in srgb, var(--card) 60%, var(--brand1) 40%));
+    color:#fdfdff;
+    font-weight:600;
   }
   .h-actions{ display:flex; gap:6px; align-items:center; }
-  .card-b{ position:relative; flex:1; background:#0a0f20; overflow:auto; }
+  .card-b{
+    position:relative;
+    flex:1;
+    background: color-mix(in srgb, var(--card) 85%, var(--bg) 15%);
+    overflow:auto;
+  }
+  .card-b iframe{ transition: opacity .25s ease; }
+  .card-b.loading iframe{ opacity:0; }
+  .card-b .skeleton{
+    position:absolute;
+    inset:0;
+    border-radius:12px;
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, #ffffff 18%, transparent) 25%,
+        color-mix(in srgb, #ffffff 32%, transparent) 37%,
+        color-mix(in srgb, #ffffff 18%, transparent) 63%);
+    background-size: 200% 100%;
+    animation: skeleton-sheen 1.4s ease infinite;
+    opacity:0;
+    pointer-events:none;
+    z-index:2;
+  }
+  .card-b.loading .skeleton{ opacity:1; }
+  .card-b.error .skeleton{ opacity:0; }
+  @keyframes skeleton-sheen{
+    0%{ background-position: 200% 0; }
+    100%{ background-position: -200% 0; }
+  }
   iframe{
-    width:100%; height:100%; border:0; background:#0a0f20;
+    width:100%;
+    height:100%;
+    border:0;
+    background: color-mix(in srgb, var(--card) 80%, var(--bg) 20%);
   }
   .badge{
-    position:absolute; top:8px; left:8px; background:#0008; color:#fff; font-size:12px;
-    padding:4px 8px; border-radius:999px; backdrop-filter: blur(6px); border:1px solid #ffffff22;
+    position:absolute;
+    top:10px;
+    left:10px;
+    background: color-mix(in srgb, var(--brand1) 35%, #000 65%);
+    color:#f8fbff;
+    font-size:12px;
+    padding:4px 9px;
+    border-radius:999px;
+    backdrop-filter: blur(6px);
+    border:1px solid color-mix(in srgb, var(--brand3) 40%, transparent);
+    z-index:3;
   }
   .hint{
-    position:absolute; inset:auto 10px 10px 10px; padding:10px 12px; border-radius:12px;
-    background:#000a; color:#fff; font-size:12px; line-height:1.3; border:1px solid #ffffff22;
+    position:absolute;
+    inset:auto 12px 12px 12px;
+    padding:12px;
+    border-radius:14px;
+    background: color-mix(in srgb, var(--panel) 80%, #000 20%);
+    color:#fdfdff;
+    font-size:12px;
+    line-height:1.4;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    box-shadow: 0 14px 30px rgba(5,9,20,.55);
     display:none;
+    z-index:4;
   }
   .card-b.error .hint{ display:block }
   dialog{
-    width:min(1000px, 96vw); border:1px solid var(--ring); border-radius:16px; padding:0;
-    background: color-mix(in srgb, var(--panel) 96%, black 4%); color:var(--text); box-shadow: var(--shadow);
+    width:min(1000px, 96vw);
+    border:1px solid color-mix(in srgb, var(--ring) 65%, transparent);
+    border-radius:18px;
+    padding:0;
+    background: color-mix(in srgb, var(--panel) 94%, var(--bg) 6%);
+    color:var(--text);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
   }
-  dialog::backdrop{ background:rgba(0,0,0,.45); backdrop-filter: blur(2px); }
-  .dlg-h{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
-          background: var(--grad); color:#fff; font-weight:700; }
-  .dlg-b{ padding:14px 16px; }
+  dialog::backdrop{
+    background:rgba(4,6,15,.55);
+    backdrop-filter: blur(4px);
+  }
+  .dlg-h{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px;
+    background: var(--grad);
+    color:#050914;
+    font-weight:700;
+  }
+  .dlg-b{ padding:16px 18px; }
   table{ width:100%; border-collapse: collapse; font-size:14px; }
   th, td{ border-bottom:1px solid var(--ring); padding:8px; text-align:left; }
-  tbody tr:hover{ background: color-mix(in srgb, var(--panel) 70%, var(--brand3) 6%); }
+  tbody tr:hover{ background: color-mix(in srgb, var(--panel) 80%, var(--brand3) 12%); }
   input[type="text"], input[type="number"]{
-    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ring);
-    background: color-mix(in srgb, var(--panel) 90%, white 10%); color:var(--text);
+    width:100%;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    background: color-mix(in srgb, var(--panel) 85%, var(--brand3) 15%);
+    color:var(--text);
   }
   .row-actions{ display:flex; gap:6px }
   .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px }
   .subtle{ color:var(--muted); font-size:12px }
   .pill{
-    padding:6px 10px; border-radius:999px; border:1px solid var(--ring);
-    background: color-mix(in srgb, var(--panel) 94%, var(--brand1) 6%);
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    background: color-mix(in srgb, var(--panel) 82%, var(--brand1) 18%);
+    box-shadow: 0 8px 18px rgba(139,92,246,.28);
   }
   .footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px }
   .tog{
-    display:inline-flex; align-items:center; gap:8px; padding:6px 8px; border-radius:999px;
-    border:1px solid var(--ring); cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    cursor:pointer;
+    background: color-mix(in srgb, var(--panel) 88%, var(--brand2) 12%);
   }
   .resizer{
-    height:6px; cursor:ns-resize;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 40%, var(--panel) 60%),
-                                      color-mix(in srgb, var(--brand2) 40%, var(--panel) 60%));
+    height:6px;
+    cursor:ns-resize;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--brand1) 45%, var(--panel) 55%),
+      color-mix(in srgb, var(--brand2) 45%, var(--panel) 55%));
   }
   .notes-area{
-    width:100%; height:100%; padding:12px; color:var(--text); outline:none;
-    /* Give notes a lighter panel background so text is readable in dark mode.  */
-    /* Increase the text color mix to brighten the area; 20–25% text gives more contrast. */
-    /* Further lighten the notes panel: mix more of the text color for better contrast */
-    /* Use a semi-transparent light overlay to improve readability on dark backgrounds. */
-    /* Increase the opacity for more contrast. */
-    background: rgba(255, 255, 255, 0.1);
-    resize:none; overflow:auto;
+    width:100%;
+    height:100%;
+    padding:14px;
+    color:var(--text);
+    outline:none;
+    background: color-mix(in srgb, var(--card) 75%, var(--brand2) 25%);
+    background-blend-mode: screen;
+    border-radius:10px;
+    border:1px solid color-mix(in srgb, var(--ring) 55%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    resize:none;
+    overflow:auto;
   }
 
   /* Override notes background in light mode so dark text remains legible */
   html.light .notes-area{
-    /* Use a pale panel background to contrast dark text in light mode */
-    background: color-mix(in srgb, var(--panel) 90%, var(--ring) 10%);
+    background: color-mix(in srgb, var(--panel) 92%, var(--brand2) 8%);
     color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
+  }
+
+  /* Light theme refinements */
+  html.light header{
+    background: linear-gradient(120deg,
+      color-mix(in srgb, var(--panel) 95%, var(--brand1) 5%),
+      color-mix(in srgb, var(--panel) 92%, var(--brand2) 8%));
+    border-color: color-mix(in srgb, var(--ring) 85%, transparent);
+    box-shadow: 0 12px 32px rgba(15,23,42,.08);
+  }
+  html.light .logo{
+    color:#ffffff;
+    box-shadow: 0 10px 20px rgba(59,130,246,.18);
+  }
+  html.light .btn{
+    background: color-mix(in srgb, #ffffff 94%, var(--brand2) 6%);
+    border-color: color-mix(in srgb, var(--ring) 80%, transparent);
+    box-shadow: 0 6px 18px rgba(99,102,241,.12);
+    color: var(--text);
+  }
+  html.light .btn:hover{
+    background: color-mix(in srgb, #ffffff 90%, var(--brand2) 10%);
+    box-shadow: 0 10px 26px rgba(99,102,241,.16);
+  }
+  html.light .btn.brand{
+    color:#ffffff;
+    box-shadow: 0 12px 28px rgba(99,102,241,.2);
+  }
+  html.light .btn.brand:hover{
+    box-shadow: 0 16px 32px rgba(99,102,241,.24);
+  }
+  html.light .btn.ghost{
+    background: color-mix(in srgb, #ffffff 96%, transparent 4%);
+  }
+  html.light .tabs{
+    background: color-mix(in srgb, #ffffff 92%, var(--bg) 8%);
+    border-color: color-mix(in srgb, var(--ring) 85%, transparent);
+    box-shadow: 0 14px 32px rgba(15,23,42,.08);
+    backdrop-filter: blur(12px);
+  }
+  html.light .chip{
+    background: color-mix(in srgb, #ffffff 94%, var(--brand2) 6%);
+    color: color-mix(in srgb, var(--text) 92%, #1f2937 8%);
+    opacity:1;
+    box-shadow: 0 4px 12px rgba(59,130,246,.12);
+  }
+  html.light .chip:hover{
+    box-shadow: 0 6px 18px rgba(59,130,246,.16);
+  }
+  html.light .chip.active{
+    color:#ffffff;
+    box-shadow: 0 12px 28px rgba(99,102,241,.2);
+  }
+  html.light .page{
+    background: color-mix(in srgb, #ffffff 96%, var(--bg) 4%);
+    border-color: color-mix(in srgb, var(--ring) 88%, transparent);
+  }
+  html.light .card{
+    background: color-mix(in srgb, #ffffff 94%, var(--bg) 6%);
+    box-shadow: 0 20px 40px rgba(15,23,42,.1);
+  }
+  html.light .card-h{
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--panel) 90%, var(--brand2) 10%),
+      color-mix(in srgb, var(--panel) 86%, var(--brand1) 14%));
+    color: color-mix(in srgb, var(--text) 90%, #1e1b4b 10%);
+  }
+  html.light .card-b{
+    background: color-mix(in srgb, #ffffff 97%, var(--bg) 3%);
+  }
+  html.light iframe{
+    background: color-mix(in srgb, #ffffff 96%, var(--bg) 4%);
+  }
+  html.light .card-b .skeleton{
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, #ffffff 35%, transparent) 25%,
+        color-mix(in srgb, #ffffff 55%, transparent) 37%,
+        color-mix(in srgb, #ffffff 35%, transparent) 63%);
+  }
+  html.light .badge{
+    background: color-mix(in srgb, var(--brand1) 18%, #ffffff 82%);
+    color: color-mix(in srgb, var(--text) 88%, #1e1b4b 12%);
+    border-color: color-mix(in srgb, var(--brand1) 28%, transparent);
+    box-shadow: 0 6px 16px rgba(99,102,241,.18);
+  }
+  html.light .hint{
+    background: color-mix(in srgb, #ffffff 94%, var(--brand1) 6%);
+    color: var(--text);
+    box-shadow: 0 16px 32px rgba(15,23,42,.12);
+  }
+  html.light dialog{
+    background: color-mix(in srgb, #ffffff 96%, var(--bg) 4%);
+    border-color: color-mix(in srgb, var(--ring) 82%, transparent);
+    box-shadow: 0 28px 48px rgba(15,23,42,.14);
+  }
+  html.light .pill{
+    background: color-mix(in srgb, #ffffff 92%, var(--brand1) 8%);
+    box-shadow: 0 8px 20px rgba(99,102,241,.16);
+    color: var(--text);
+  }
+  html.light .tog{
+    background: color-mix(in srgb, #ffffff 94%, var(--brand2) 6%);
+    border-color: color-mix(in srgb, var(--ring) 82%, transparent);
   }
 
   /* ======= Grid Table styling (Excel-like) ======= */
@@ -204,6 +492,15 @@
     top: 0;
     bottom: 0;
     right: 0;
+  }
+
+  .resizer,
+  .resizer-x{
+    display:none;
+  }
+  .grid.editing .resizer,
+  .grid.editing .resizer-x{
+    display:block;
   }
 
   /* ===== Styles for Links page ===== */
@@ -308,6 +605,7 @@
     <div class="logo">N6 HUB</div>
     <div class="grow"></div>
     <button class="btn" id="btn-setup">Setup</button>
+    <button class="btn ghost" id="btn-layout" aria-pressed="false">Edit layout</button>
     <button class="btn ghost" id="btn-export">Export</button>
     <button class="btn ghost" id="btn-import">Import</button>
     <label class="tog" title="Toggle light/dark">
@@ -363,6 +661,9 @@
 
 <script>
 const LS_KEY = "n6hub:config:v2";
+const LAST_PAGE_KEY = "n6hub:lastPage";
+const NOTES_KEY = "n6hub:notes";
+const HINT_DELAY = 1200;
 const DEFAULTS = [
   { page:"BI",      title:"ServiceNow",    url:"https://app.powerbi.com/reportEmbed?reportId=e1e7ca50-bdb4-4d95-a482-bfe8e1479cef&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
   { page:"BI",      title:"InMoment Tags", url:"https://app.powerbi.com/reportEmbed?reportId=9c9e03df-cf99-4d67-863b-4aabcf56adf8&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
@@ -404,6 +705,40 @@ function el(tag, props={}, ...kids){
   }
   return e;
 }
+function debounce(fn, wait=300){
+  let timeout;
+  let lastArgs;
+  let lastThis;
+  function invoke(){
+    const args = lastArgs;
+    const ctx = lastThis;
+    timeout = null;
+    lastArgs = undefined;
+    lastThis = undefined;
+    fn.apply(ctx, args);
+  }
+  function debounced(...args){
+    lastArgs = args;
+    lastThis = this;
+    if(timeout){ clearTimeout(timeout); }
+    timeout = setTimeout(invoke, wait);
+  }
+  debounced.flush = () => {
+    if(timeout){
+      clearTimeout(timeout);
+      invoke();
+    }
+  };
+  debounced.cancel = () => {
+    if(timeout){
+      clearTimeout(timeout);
+    }
+    timeout = null;
+    lastArgs = undefined;
+    lastThis = undefined;
+  };
+  return debounced;
+}
 function setStatus(msg){ document.getElementById("status").textContent = msg; }
 let rows = loadConfig();
 
@@ -418,11 +753,113 @@ if(!rows.some(r => r.page === 'Links')){
   rows.push({ page:'Links', title:'Links', type:'links', height:500, links: [], viewMode:'list' });
   saveConfig(rows);
 }
-let currentPage = uniquePages(rows)[0] || "Home";
 const tabbar = document.getElementById("tabbar");
 const cards = document.getElementById("cards");
-function renderTabs(){ tabbar.innerHTML = ""; const pages = uniquePages(rows); if(pages.length===0) pages.push("Setup"); for(const p of pages){ const b = el("button", {className:"chip" + (p===currentPage?" active":"")}); b.textContent = p; b.onclick = () => { currentPage = p; renderCards(); renderTabs(); }; tabbar.appendChild(b); } }
-function createResizer(card, rec){ const resize = el('div',{className:'resizer'}); resize.onpointerdown = (e) => { e.preventDefault(); const startY = e.clientY; const startH = parseFloat(card.style.minHeight) || card.offsetHeight; function move(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; card.style.minHeight = newH + 'px'; } function up(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; rec.height = Math.round(newH); saveConfig(rows); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); } document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); }; return resize; }
+const layoutToggle = document.getElementById("btn-layout");
+const queueConfigSave = debounce(() => saveConfig(rows), 300);
+const saveNotesDebounced = debounce(value => localStorage.setItem(NOTES_KEY, value), 300);
+let layoutEditing = false;
+let skipHashUpdate = false;
+function getPageFromHash(){
+  const raw = window.location.hash;
+  if(!raw) return '';
+  try{ return decodeURIComponent(raw.slice(1)); }
+  catch{ return raw.slice(1); }
+}
+function updateHashForPage(page){
+  if(!page) return;
+  const encoded = '#' + encodeURIComponent(page);
+  if(window.location.hash === encoded) return;
+  history.replaceState(null, '', encoded);
+}
+function rememberCurrentPage(){
+  if(!currentPage) return;
+  if(currentPage === 'Setup') return;
+  localStorage.setItem(LAST_PAGE_KEY, currentPage);
+  if(skipHashUpdate) return;
+  updateHashForPage(currentPage);
+}
+function determineInitialPage(){
+  const pages = uniquePages(rows);
+  if(pages.length === 0) return 'Setup';
+  const hashPage = getPageFromHash();
+  if(hashPage && pages.includes(hashPage)) return hashPage;
+  const stored = localStorage.getItem(LAST_PAGE_KEY);
+  if(stored && pages.includes(stored)) return stored;
+  return pages[0];
+}
+let currentPage = determineInitialPage();
+function updateLayoutToggleUI(){
+  if(!layoutToggle) return;
+  layoutToggle.textContent = layoutEditing ? 'Lock layout' : 'Edit layout';
+  layoutToggle.classList.toggle('brand', layoutEditing);
+  layoutToggle.setAttribute('aria-pressed', layoutEditing);
+  cards.classList.toggle('editing', layoutEditing);
+}
+if(layoutToggle){
+  layoutToggle.addEventListener('click', () => {
+    layoutEditing = !layoutEditing;
+    updateLayoutToggleUI();
+    setStatus(layoutEditing ? 'Layout editing enabled. Drag handles to resize cards.' : 'Layout locked.');
+  });
+  updateLayoutToggleUI();
+}
+function renderTabs(){
+  tabbar.innerHTML = "";
+  const pages = uniquePages(rows);
+  if(pages.length===0) pages.push("Setup");
+  for(const p of pages){
+    const isActive = p === currentPage;
+    const b = el("button", {className:"chip" + (isActive?" active":""), type:"button", 'data-page':p});
+    if(isActive) b.setAttribute('aria-current','page');
+    b.textContent = p;
+    b.onclick = () => setCurrentPage(p);
+    tabbar.appendChild(b);
+  }
+}
+function setCurrentPage(page, opts={}){
+  const { fromHash = false } = opts;
+  const pages = uniquePages(rows);
+  if(!pages.includes(page)) return;
+  const prevSkip = skipHashUpdate;
+  skipHashUpdate = fromHash;
+  if(page === currentPage){
+    rememberCurrentPage();
+    skipHashUpdate = prevSkip;
+    return;
+  }
+  currentPage = page;
+  renderTabs();
+  renderCards();
+  skipHashUpdate = prevSkip;
+}
+function createResizer(card, rec){
+  const resize = el('div',{className:'resizer'});
+  resize.onpointerdown = (e) => {
+    if(!layoutEditing) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = parseFloat(card.style.minHeight) || card.offsetHeight;
+    function move(ev){
+      const dy = ev.clientY - startY;
+      let newH = startH + dy;
+      if(newH < 100) newH = 100;
+      card.style.minHeight = newH + 'px';
+    }
+    function up(ev){
+      const dy = ev.clientY - startY;
+      let newH = startH + dy;
+      if(newH < 100) newH = 100;
+      rec.height = Math.round(newH);
+      saveConfig(rows);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  };
+  return resize;
+}
 
 // Create a horizontal resizer to adjust card width (grid span). This allows users to drag the right edge
 // of an embed card and change how many grid columns it spans. The `isSingle` flag indicates
@@ -430,20 +867,17 @@ function createResizer(card, rec){ const resize = el('div',{className:'resizer'}
 function createWidthResizer(card, rec, isSingle){
   const resize = el('div',{className:'resizer-x'});
   resize.onpointerdown = (e) => {
+    if(!layoutEditing) return;
     e.preventDefault();
     const startX = e.clientX;
-    // Determine starting span: use existing rec.span or default (full width if single card else half)
     let startSpan = rec.span || (isSingle ? 12 : 6);
-    // Compute container metrics for column widths and gap
     const container = cards;
     const style = window.getComputedStyle(container);
     const gapVal = parseFloat(style.gap) || 0;
     const containerWidth = container.clientWidth;
-    // Each column width is container width minus total gaps divided by 12 columns
     const colWidth = (containerWidth - gapVal * 11) / 12;
     function move(ev){
       const dx = ev.clientX - startX;
-      // Determine how many columns to change by approximating with column+gap width
       let delta = Math.round(dx / (colWidth + gapVal));
       let newSpan = startSpan + delta;
       if(newSpan < 1) newSpan = 1;
@@ -451,8 +885,7 @@ function createWidthResizer(card, rec, isSingle){
       rec.span = newSpan;
       card.style.gridColumn = 'span ' + newSpan;
     }
-    function up(ev){
-      // Persist the new span on release
+    function up(){
       saveConfig(rows);
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
@@ -463,7 +896,20 @@ function createWidthResizer(card, rec, isSingle){
   return resize;
 }
 function renderWeatherPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 600)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Weather'); const body = el('div',{className:'card-b'}, el('div',{className:'tomorrow', 'data-location-id':'111783,128587,114900,122795,111151,124126','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'current6', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'}))), el('div',{className:'tomorrow','data-location-id':'111783','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'upcoming', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'})))); card.append(h, body); cards.append(card); if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); } }
-function renderNotesPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Notes'); const body = el('div',{className:'card-b'}); const notesArea = el('div',{className:'notes-area', contentEditable:'true'}); notesArea.innerText = localStorage.getItem('n6hub:notes') || ''; notesArea.oninput = () => { localStorage.setItem('n6hub:notes', notesArea.innerText); }; body.append(notesArea); card.append(h, body); cards.append(card); }
+function renderNotesPage(rec){
+  cards.innerHTML = "";
+  const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'});
+  const h = el('div',{className:'card-h'}, rec.title || 'Notes');
+  const body = el('div',{className:'card-b'});
+  const notesArea = el('div',{className:'notes-area', contentEditable:'true'});
+  notesArea.innerText = localStorage.getItem(NOTES_KEY) || '';
+  notesArea.addEventListener('input', () => {
+    saveNotesDebounced(notesArea.innerText);
+  });
+  body.append(notesArea);
+  card.append(h, body);
+  cards.append(card);
+}
 function renderTasksPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Tasks'); const body = el('div',{className:'card-b'}, el('div',{className:'hint', style:'display:block'}, 'Task list is empty. Add tasks via upcoming setup.')); card.append(h, body); cards.append(card); }
 
 // Render a spreadsheet-like table with arrow-key navigation and sortable columns
@@ -520,7 +966,7 @@ function renderTablePage(rec){
       // Save value on input
       td.oninput = () => {
         rec.data[r][c] = td.innerText;
-        saveConfig(rows);
+        queueConfigSave();
       };
       // Arrow key navigation
       td.onkeydown = (e) => {
@@ -673,14 +1119,26 @@ function renderLinksPage(rec){
   cards.append(card);
   setStatus('Showing links.');
 }
-function cardHint(block, url){ block.classList.add("error"); block.querySelector(".hint").innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`; }
+function cardHint(block, url){
+  block.classList.add('error');
+  block.classList.remove('loading');
+  const hint = block.querySelector('.hint');
+  if(hint){
+    if(url){
+      hint.innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`;
+    }else{
+      hint.textContent = 'This site may block embedding (X-Frame-Options / CSP).';
+    }
+  }
+  block._hintTimer = null;
+}
 function renderCards(){
-  // Handle special pages first
+  cards.classList.toggle('editing', layoutEditing);
+  rememberCurrentPage();
   if(currentPage === 'Weather'){
     const rec = rows.find(r => r.page === 'Weather');
     if(rec){
       renderWeatherPage(rec);
-      // Ensure Tomorrow.io widgets re-render after the card is inserted
       setTimeout(() => {
         if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); }
       }, 0);
@@ -704,7 +1162,6 @@ function renderCards(){
       return;
     }
   }
-  // Render table page (Excel-like)
   if(currentPage === 'Table'){
     const rec = rows.find(r => r.page === 'Table');
     if(rec){
@@ -713,8 +1170,6 @@ function renderCards(){
       return;
     }
   }
-
-  // Render links page
   if(currentPage === 'Links'){
     const rec = rows.find(r => r.page === 'Links');
     if(rec){
@@ -722,14 +1177,10 @@ function renderCards(){
       return;
     }
   }
-  // Clear existing cards
   cards.innerHTML = "";
-  // Build list of embeds for current page
   const list = rows.filter(r => (r.page||"").trim() === currentPage && !r.type);
-  // Determine if there's only one embed on this page. Used for default width.
   const isSingle = list.length === 1;
   if(list.length === 0){
-    // Show no-content card when there are no rows for this page
     cards.append(
       el('div',{className:'card', style:'grid-column:span 12;min-height:140px'},
         el('div',{className:'card-h'},
@@ -745,21 +1196,16 @@ function renderCards(){
     );
     return;
   }
-  // Generate a card for each embed row
   for(const rec of list){
     const card = el('div',{className:'card'});
     card.style.minHeight = (rec.height || 380) + 'px';
-    // Ensure cards are positioned relatively for absolute resizers
     card.style.position = 'relative';
-    // Set default grid span if not already defined: full width when only one embed, half otherwise
     if(!rec.span){ rec.span = isSingle ? 12 : 6; }
     card.style.gridColumn = 'span ' + rec.span;
-    // Actions: refresh and open
     const actions = el('div',{className:'h-actions'},
-      el('button',{className:'btn', title:'Refresh', onclick: () => reloadIframe(card)},'Refresh'),
-      el('button',{className:'btn', title:'Open in new tab', onclick: () => window.open(rec.url, '_blank')},'Open')
+      el('button',{className:'btn', title:'Refresh', onclick: () => reloadIframe(card, rec)},'Refresh'),
+      el('button',{className:'btn', title:'Open in new tab', onclick: () => { if(rec.url){ window.open(rec.url, '_blank'); }}},'Open')
     );
-    // Zoom controls only for embed rows (no type)
     if(!rec.type){
       actions.append(
         el('button',{className:'btn', title:'Zoom out', onclick: () => {
@@ -774,45 +1220,74 @@ function renderCards(){
         }},'+')
       );
     }
-    // Header
     const h = el('div',{className:'card-h'},
       el('div',{}, rec.title || '(Untitled)'),
       actions
     );
-    // Compact style for embed cards
     if(!rec.type){ h.classList.add('embed'); }
-    // Iframe with optional zoom
     const zoomVal = rec.zoom || 1;
-    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer'});
-    // Apply zoom scaling: scale the iframe and adjust its intrinsic size so the container remains fixed.
+    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer', loading:'lazy'});
     iframeEl.style.transform = 'scale('+zoomVal+')';
     iframeEl.style.transformOrigin = '0 0';
     iframeEl.style.width = (100/zoomVal) + '%';
     iframeEl.style.height = (100/zoomVal) + '%';
-    const body = el('div',{className:'card-b'},
-      el('span',{className:'badge'}, (new URL(rec.url)).hostname ),
-      iframeEl
+    let badgeText = '';
+    try{
+      badgeText = new URL(rec.url).hostname;
+    }catch{
+      badgeText = (rec.url || '').replace(/^https?:\/\//,'').split('/')[0] || 'Preview';
+    }
+    const skeleton = el('div',{className:'skeleton','aria-hidden':'true'});
+    const hint = el('div',{className:'hint'},'');
+    const body = el('div',{className:'card-b loading'},
+      skeleton,
+      el('span',{className:'badge'}, badgeText),
+      iframeEl,
+      hint
     );
-    // Append header, body, hint, vertical resizer and horizontal width resizer
     card.append(
       h,
       body,
-      el('div',{className:'hint'},''),
       createResizer(card, rec),
       createWidthResizer(card, rec, isSingle)
     );
-    // Show hint if embed fails to load
-    let timer = setTimeout(() => cardHint(body, rec.url), 2500);
-    body.querySelector('iframe').addEventListener('load',() => {
-      clearTimeout(timer);
+    if(body._hintTimer){ clearTimeout(body._hintTimer); }
+    body._hintTimer = setTimeout(() => cardHint(body, rec.url), HINT_DELAY);
+    iframeEl.addEventListener('load', () => {
+      if(body._hintTimer){
+        clearTimeout(body._hintTimer);
+        body._hintTimer = null;
+      }
       body.classList.remove('error');
+      body.classList.remove('loading');
+      body.classList.add('loaded');
+      const hintEl = body.querySelector('.hint');
+      if(hintEl){
+        hintEl.textContent = '';
+      }
     });
     cards.append(card);
   }
-  // Update status message
   setStatus('Showing '+list.length+' item(s) on “'+currentPage+'”.');
 }
-function reloadIframe(card){ const iframe = card.querySelector("iframe"); const src = iframe.getAttribute("src"); iframe.setAttribute("src", src); }
+function reloadIframe(card, rec){
+  const iframe = card.querySelector('iframe');
+  if(!iframe) return;
+  const body = card.querySelector('.card-b');
+  const targetUrl = (rec && rec.url) || iframe.getAttribute('src');
+  if(body){
+    body.classList.remove('error');
+    body.classList.remove('loaded');
+    body.classList.add('loading');
+    const hintEl = body.querySelector('.hint');
+    if(hintEl){ hintEl.textContent = ''; }
+    if(body._hintTimer){
+      clearTimeout(body._hintTimer);
+    }
+    body._hintTimer = setTimeout(() => cardHint(body, targetUrl), HINT_DELAY);
+  }
+  iframe.setAttribute('src', targetUrl);
+}
 const dlg = document.getElementById("dlg");
 const tbody = document.getElementById("tbody");
 function openSetup(){ dlg.showModal(); drawTable(); }
@@ -821,9 +1296,36 @@ function drawTable(){ tbody.innerHTML = ""; rows.forEach((r, i) => { const tr = 
 function addRow(){ rows.push({ page:"New", title:"New Card", url:"https://example.com", height:380 }); saveConfig(rows); drawTable(); renderTabs(); }
 function moveRow(i, dir){ const j = i + dir; if(j<0 || j>=rows.length) return; const t = rows[i]; rows[i] = rows[j]; rows[j] = t; saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
 function duplicateRow(i){ rows.splice(i+1, 0, {...rows[i]}); saveConfig(rows); drawTable(); }
-function removeRow(i){ rows.splice(i, 1); saveConfig(rows); drawTable(); renderTabs(); if(!uniquePages(rows).includes(currentPage)) currentPage = uniquePages(rows)[0] || "Setup"; renderCards(); }
+function removeRow(i){
+  rows.splice(i, 1);
+  saveConfig(rows);
+  drawTable();
+  const pages = uniquePages(rows);
+  if(!pages.includes(currentPage)){
+    if(pages.length){
+      setCurrentPage(pages[0]);
+    }else{
+      currentPage = 'Setup';
+      renderTabs();
+      renderCards();
+    }
+  }else{
+    renderTabs();
+    renderCards();
+  }
+}
 function seedExamples(){ rows = DEFAULTS.slice(); saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
-function exportConfig(){ const json = JSON.stringify(rows, null, 2); const blob = new Blob([json], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = el("a",{href:url, download:"n6hub-config.json"}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function exportConfig(){
+  queueConfigSave.flush();
+  const json = JSON.stringify(rows, null, 2);
+  const blob = new Blob([json], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = el("a",{href:url, download:"n6hub-config.json"});
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 function importConfig(){ const input = el("input",{type:"file", accept:"application/json"}); input.onchange = async () => { const file = input.files[0]; if(!file) return; const text = await file.text(); try{ const next = JSON.parse(text); if(!Array.isArray(next)) throw new Error("Invalid format"); rows = next; saveConfig(rows); renderTabs(); renderCards(); if(dlg.open) drawTable(); }catch(e){ alert("Import failed: " + e.message); } }; input.click(); }
 const mode = document.getElementById("mode");
 (function initTheme(){ const saved = localStorage.getItem("n6hub:theme") || "dark"; document.documentElement.classList.toggle("light", saved==="light"); mode.checked = saved==="light"; })();
@@ -832,9 +1334,25 @@ document.getElementById("btn-setup").onclick = openSetup;
 document.getElementById("closeDlg").onclick = closeSetup;
 document.getElementById("addRow").onclick = addRow;
 document.getElementById("seed").onclick = seedExamples;
-document.getElementById("save").onclick = () => { saveConfig(rows); setStatus("Saved."); };
+document.getElementById("save").onclick = () => {
+  queueConfigSave.flush();
+  saveConfig(rows);
+  setStatus("Saved.");
+};
 document.getElementById("btn-export").onclick = exportConfig;
 document.getElementById("btn-import").onclick = importConfig;
+window.addEventListener('hashchange', () => {
+  const page = getPageFromHash();
+  if(!page || page === currentPage) return;
+  const pages = uniquePages(rows);
+  if(pages.includes(page)){
+    setCurrentPage(page, {fromHash:true});
+  }
+});
+window.addEventListener('beforeunload', () => {
+  queueConfigSave.flush();
+  saveNotesDebounced.flush();
+});
 renderTabs();
 renderCards();
 (function(d,s,id){
