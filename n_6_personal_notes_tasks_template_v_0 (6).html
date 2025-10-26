@@ -2157,7 +2157,6 @@
       // Separate into unscheduled (no startTime or startTime outside 6-16:30) and scheduled
       const unsCandidates = [];
       const schedMap = {};
-      const scheduledIds = new Set();
       tasksForDay.forEach(t => {
         const dueMatch = t.dueDate != null ? isSameDate(new Date(t.dueDate), dtBase) : false;
         const hasStart = Number.isFinite(t.startTime);
@@ -2171,7 +2170,6 @@
             const key = zeroPad(hour) + ':' + zeroPad(minute);
             if(!schedMap[key]) schedMap[key] = [];
             schedMap[key].push(t);
-            scheduledIds.add(t.id);
             return;
           }
           // Tasks with a start time that doesn't align with the visible window fall back to the unscheduled list.
@@ -2180,6 +2178,22 @@
         }
         // No start time: treat as unscheduled. Only include if due date matches or dueDate is null.
         if(dueMatch || !t.dueDate) unsCandidates.push(t);
+      });
+      const slotAssignments = {};
+      const primaryScheduledIds = new Set();
+      Object.keys(schedMap).forEach(key => {
+        const sorted = schedMap[key].slice().sort((a,b) => {
+          if(a.priority !== b.priority) return a.priority - b.priority;
+          return (a.createdAt||0) - (b.createdAt||0);
+        });
+        const primary = sorted.shift() || null;
+        if(primary){
+          slotAssignments[key] = primary;
+          primaryScheduledIds.add(primary.id);
+        }
+        if(sorted.length){
+          sorted.forEach(extra => unsCandidates.push(extra));
+        }
       });
       function appendUnscheduledCard(t){
         const div = document.createElement('div');
@@ -2216,8 +2230,14 @@
         unscheduled.appendChild(div);
       }
       // Render unscheduled tasks
+      const seenUnscheduledIds = new Set();
       unsCandidates
-        .filter(task => !scheduledIds.has(task.id))
+        .filter(task => !primaryScheduledIds.has(task.id))
+        .filter(task => {
+          if(seenUnscheduledIds.has(task.id)) return false;
+          seenUnscheduledIds.add(task.id);
+          return true;
+        })
         .forEach(t => appendUnscheduledCard(t));
       // Drag target: unscheduled container resets startTime
       unscheduled.addEventListener('dragover', (e) => {
@@ -2257,17 +2277,7 @@
         const cell = document.createElement('div');
         cell.className = 'day-cell';
         const key = zeroPad(h) + ':' + zeroPad(m);
-        const list = (schedMap[key] || []).slice();
-        // Sort by priority then createdAt so the primary slot task is predictable
-        list.sort((a,b) => {
-          if(a.priority !== b.priority) return a.priority - b.priority;
-          return (a.createdAt||0) - (b.createdAt||0);
-        });
-        const primaryTask = list.shift() || null;
-        if(list.length){
-          // Only one entry per slot—surface overflow alongside the unscheduled list
-          list.forEach(extra => appendUnscheduledCard(extra));
-        }
+        const primaryTask = slotAssignments[key] || null;
         const slotTimestamp = new Date(yy, mm-1, dd, h, m).getTime();
         const originalTitle = primaryTask ? (primaryTask.title || '') : '';
         const quickInput = document.createElement('input');
@@ -2321,6 +2331,7 @@
             targetEntry.input.select();
           }
         };
+        let hasCommittedNewTask = false;
         const commitSlotValue = (opts = {}) => {
           const nextKey = opts.nextKey || null;
           const text = quickInput.value.trim();
@@ -2344,11 +2355,13 @@
             return false;
           }
           if(!text) return false;
+          if(hasCommittedNewTask) return false;
           if(nextKey){
             pendingDaySlotFocus = { key: nextKey, select: true };
           }
           const created = createManualTask(text, { dueDate: dayTimestamp, startTime: slotTimestamp });
           if(created){
+            hasCommittedNewTask = true;
             refreshAfterStateChange();
             return true;
           }
