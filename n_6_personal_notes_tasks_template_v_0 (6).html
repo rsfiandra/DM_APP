@@ -684,6 +684,9 @@
     <div class="modal-card card">
       <div class="card-head">Edit Item</div>
       <div class="card-body">
+        <div class="field"><label>Title</label>
+          <input type="text" id="modalTitleInput" placeholder="Task title"/>
+        </div>
         <div class="field"><label>Status</label>
           <select id="modalStatusSelect">
             <option value="backlog">Backlog</option>
@@ -779,6 +782,22 @@
     }
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
+
+    function compareTaskDisplayOrder(a,b){
+      if(a===b) return 0;
+      if(!a) return 1;
+      if(!b) return -1;
+      const doneA = String(a.status||'').toLowerCase()==='done';
+      const doneB = String(b.status||'').toLowerCase()==='done';
+      if(doneA!==doneB) return doneA?1:-1;
+      const dueA = (typeof a.dueDate==='number' && Number.isFinite(a.dueDate))? a.dueDate : Infinity;
+      const dueB = (typeof b.dueDate==='number' && Number.isFinite(b.dueDate))? b.dueDate : Infinity;
+      if(dueA!==dueB) return dueA - dueB;
+      const priorityA = Number(a.priority)||0;
+      const priorityB = Number(b.priority)||0;
+      if(priorityA!==priorityB) return priorityA - priorityB;
+      return (a.createdAt||0) - (b.createdAt||0);
+    }
 
     // ---------- Router ----------
     // Extend views to include calendar and day
@@ -948,15 +967,7 @@
     function renderNotesList(){
       notesPreview.innerHTML = '';
       const manualTasks = state.tasks.filter(t => !t.fromNotes);
-      const tasksSorted = manualTasks.slice().sort((a,b) => {
-        const doneA = a.status === 'done' ? 1 : 0;
-        const doneB = b.status === 'done' ? 1 : 0;
-        if(doneA !== doneB) return doneA - doneB;
-        const aDue = a.dueDate ?? Infinity;
-        const bDue = b.dueDate ?? Infinity;
-        if(aDue !== bDue) return aDue - bDue;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
+      const tasksSorted = manualTasks.slice().sort(compareTaskDisplayOrder);
       let appendedMainHeader = false;
       const ensureMainHeader = () => {
         if(appendedMainHeader) return;
@@ -1600,15 +1611,7 @@
       document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
       taskListEl.innerHTML='';
       // Sort tasks: incomplete first, then completed; sort by due date ascending then createdAt
-      const tasksSorted = state.tasks.slice().sort((a,b) => {
-        const doneA = a.status === 'done' ? 1 : 0;
-        const doneB = b.status === 'done' ? 1 : 0;
-        if(doneA !== doneB) return doneA - doneB;
-        const aDue = a.dueDate ?? Infinity;
-        const bDue = b.dueDate ?? Infinity;
-        if(aDue !== bDue) return aDue - bDue;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
+      const tasksSorted = state.tasks.slice().sort(compareTaskDisplayOrder);
       tasksSorted.forEach(t=>{
         const card=document.createElement('div'); card.className='task-card';
         card.dataset.taskId = t.id;
@@ -1699,7 +1702,8 @@
             if(selectedDate) renderDay(selectedDate);
           }
         });
-        (laneTaskMap.get(l.key)||[]).forEach(t=>{
+        const laneTasks = (laneTaskMap.get(l.key)||[]).slice().sort(compareTaskDisplayOrder);
+        laneTasks.forEach(t=>{
           const c=document.createElement('div');
           c.className='kb-card';
           c.dataset.taskId = t.id;
@@ -1737,13 +1741,17 @@
     function renderGrid(){
       const tbody=document.getElementById('gridBody'); tbody.innerHTML='';
       const items = state.tasks.slice().sort((a,b)=>{
+        const doneA = String(a.status||'').toLowerCase()==='done';
+        const doneB = String(b.status||'').toLowerCase()==='done';
+        if(doneA!==doneB) return doneA?1:-1;
         let av=a[sortKey], bv=b[sortKey];
         if(sortKey==='tags'){ av=(a.tags||[]).join(','); bv=(b.tags||[]).join(','); }
         if(sortKey==='createdAt'){ av=a.createdAt||0; bv=b.createdAt||0; }
         if(sortKey==='dueDate'){ av=a.dueDate||0; bv=b.dueDate||0; }
         if(sortKey==='priority'){ av=Number(av)||0; bv=Number(bv)||0; }
         av = typeof av==='string'? av.toLowerCase() : av; bv = typeof bv==='string'? bv.toLowerCase() : bv;
-        return sortDir==='asc' ? (av>bv?1:av<bv?-1:0) : (av<bv?1:av>bv?-1:0);
+        const cmp = av>bv?1:av<bv?-1:0;
+        return sortDir==='asc' ? cmp : -cmp;
       });
       items.forEach((t,rowIdx)=>{
         const tr=document.createElement('tr'); tr.dataset.id=t.id; tr.dataset.taskId = t.id;
@@ -1817,6 +1825,7 @@
 
     // ---------- Modal editing for note items ----------
     const taskModal = document.getElementById('taskModal');
+    const modalTitleInput = document.getElementById('modalTitleInput');
     const modalStatusSelect = document.getElementById('modalStatusSelect');
     const modalPrioritySelect = document.getElementById('modalPrioritySelect');
     const modalDueDate = document.getElementById('modalDueDate');
@@ -1888,6 +1897,11 @@
       if(!task) return;
       currentModalTask = task;
       if(!Array.isArray(task.tags)) task.tags = [];
+      if(modalTitleInput){
+        modalTitleInput.value = task.title || '';
+        modalTitleInput.focus();
+        modalTitleInput.select();
+      }
       const statusVal = task.status || 'backlog';
       modalStatusSelect.disabled = false;
       modalStatusSelect.value = statusVal;
@@ -1983,9 +1997,14 @@
       modalChecklistData = [];
       if(modalChecklist){ modalChecklist.innerHTML = ''; }
       if(modalCheckInput){ modalCheckInput.value = ''; }
+      if(modalTitleInput){ modalTitleInput.value = ''; }
     }
     modalSaveBtn.addEventListener('click', () => {
       if(!currentModalTask){ closeTaskModal(); return; }
+      if(modalTitleInput){
+        const title = modalTitleInput.value.trim();
+        currentModalTask.title = title || '(untitled)';
+      }
       const isComplete = modalCompleteToggle && modalCompleteToggle.checked;
       const statusChoice = modalStatusSelect.value || 'backlog';
       currentModalTask.status = isComplete ? 'done' : statusChoice;
