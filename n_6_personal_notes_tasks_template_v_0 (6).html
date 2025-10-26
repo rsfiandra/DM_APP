@@ -36,6 +36,18 @@
       max-width:min(1400px, calc(100vw - 40px));
       padding:clamp(16px, 2.5vw, 28px);
     }
+    body.table-full .wrap{
+      max-width:none;
+      width:100%;
+      padding-left:clamp(16px, 2vw, 48px);
+      padding-right:clamp(16px, 2vw, 48px);
+    }
+    body.table-full #view-table .card-body{
+      padding:24px;
+    }
+    body.table-full #view-table .grid{
+      overflow:auto;
+    }
 
     /* --- Tab bar with status chips + gear --- */
     .tab-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 0 8px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 6px 12px rgba(15,23,42,.08)}
@@ -860,6 +872,7 @@
       Object.keys(views).forEach(k=> views[k].style.display = k===id? '':'none');
       document.querySelectorAll('.tab-buttons button').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
       document.getElementById('tabSelect').value = id;
+      document.body.classList.toggle('table-full', id==='table');
       if(id==='kanban'){ renderKanban(); }
       if(id==='table'){ renderGrid(); }
       if(id==='tasks'){ renderTagPalette(); renderTasks(); }
