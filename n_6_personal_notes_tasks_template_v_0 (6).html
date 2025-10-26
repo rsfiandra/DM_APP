@@ -383,11 +383,11 @@
     }
     .day-slot{
       display:flex;
-      align-items:flex-start;
-      gap:4px;
-      padding:2px 4px;
+      align-items:stretch;
+      gap:6px;
+      padding:2px 6px;
       border-bottom:1px solid var(--line);
-      min-height:36px;
+      min-height:40px;
     }
     .day-slot:last-child{border-bottom:none;}
     .day-time{
@@ -397,29 +397,40 @@
     }
     .day-cell{
       flex:1;
-      min-height:28px;
-      border:1px dashed transparent;
-      border-radius:6px;
-      padding:2px;
+      display:flex;
+      align-items:center;
+      min-height:32px;
+      border:1px solid var(--line);
+      border-radius:8px;
+      padding:0;
+      background:#fff;
+      transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      position:relative;
+    }
+    .day-cell.has-value{
+      background:#f8fafc;
     }
     .day-slot-input{
       width:100%;
-      margin-top:4px;
-      padding:4px 8px;
-      border:1px solid var(--line);
-      border-radius:6px;
+      padding:6px 10px;
+      border:none;
+      background:transparent;
       font:inherit;
-      background:#fff;
       color:var(--ink);
     }
     .day-slot-input:focus{
-      outline:2px solid rgba(255,138,0,0.35);
-      border-color:rgba(255,138,0,0.6);
+      outline:none;
+    }
+    .day-cell:focus-within{
+      border-color:rgba(255,138,0,0.55);
+      box-shadow:0 0 0 2px rgba(255,138,0,0.2);
+      background:#fff8f1;
     }
     .day-slot-input::placeholder{color:var(--muted);}
     .day-cell.drag-over{
       border-color:var(--kanban-drop);
       background:var(--kanban-drop);
+      box-shadow:none;
     }
     .day-unscheduled .calendar-task,
     .day-grid .calendar-task{
@@ -2164,8 +2175,7 @@
           if(dueMatch || !t.dueDate) uns.push(t);
         }
       });
-      // Render unscheduled tasks
-      uns.forEach(t => {
+      function appendUnscheduledCard(t){
         const div = document.createElement('div');
         div.className = 'calendar-task';
         div.dataset.taskId = t.id;
@@ -2198,7 +2208,9 @@
         });
         setupDayTaskInteractions(div, t.id);
         unscheduled.appendChild(div);
-      });
+      }
+      // Render unscheduled tasks
+      uns.forEach(t => appendUnscheduledCard(t));
       // Drag target: unscheduled container resets startTime
       unscheduled.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -2238,46 +2250,46 @@
         cell.className = 'day-cell';
         const key = zeroPad(h) + ':' + zeroPad(m);
         const list = (schedMap[key] || []).slice();
-        const slotTimestamp = new Date(yy, mm-1, dd, h, m).getTime();
-        // Sort by priority then createdAt
+        // Sort by priority then createdAt so the primary slot task is predictable
         list.sort((a,b) => {
           if(a.priority !== b.priority) return a.priority - b.priority;
           return (a.createdAt||0) - (b.createdAt||0);
         });
-        list.forEach(t => {
-          const div = document.createElement('div');
-          div.className = 'calendar-task';
-          div.dataset.taskId = t.id;
-          const titleLine=document.createElement('div');
-          titleLine.className='calendar-task-title';
-          applyTruncatedTitle(titleLine, t.title, { extraTooltip: t.details });
-          div.appendChild(titleLine);
-          if(t.details){
-            const note=document.createElement('div');
-            note.className='calendar-task-note';
-            note.textContent=t.details;
-            div.appendChild(note);
-          }
-          if(t.details){
-            div.title = titleLine.dataset.fullTitle && titleLine.dataset.fullTitle !== t.details
-              ? titleLine.dataset.fullTitle + '\n' + t.details
-              : t.details;
-          } else if(titleLine.getAttribute('title')){
-            div.title = titleLine.getAttribute('title');
-          }
-          div.draggable = true;
-          div.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', t.id);
-          });
-          setupDayTaskInteractions(div, t.id);
-          cell.appendChild(div);
-        });
+        const primaryTask = list.shift() || null;
+        if(list.length){
+          // Only one entry per slot—surface overflow alongside the unscheduled list
+          list.forEach(extra => appendUnscheduledCard(extra));
+        }
+        const slotTimestamp = new Date(yy, mm-1, dd, h, m).getTime();
+        const originalTitle = primaryTask ? (primaryTask.title || '') : '';
         const quickInput = document.createElement('input');
         quickInput.type = 'text';
-        quickInput.placeholder = 'Add item…';
         quickInput.className = 'day-slot-input';
         quickInput.dataset.slotKey = key;
         quickInput.setAttribute('aria-label', `Add item at ${timeLabel.textContent}`);
+        if(primaryTask){
+          quickInput.value = originalTitle;
+          quickInput.dataset.taskId = primaryTask.id;
+          quickInput.placeholder = '';
+          cell.dataset.taskId = primaryTask.id;
+          cell.classList.add('has-value');
+          cell.draggable = true;
+          cell.addEventListener('dragstart', (e) => {
+            if(document.activeElement === quickInput){
+              e.preventDefault();
+              return;
+            }
+            e.dataTransfer.setData('text/plain', primaryTask.id);
+          });
+          cell.addEventListener('dragend', () => {
+            cell.classList.remove('drag-over');
+          });
+        } else {
+          quickInput.placeholder = 'Add item…';
+          delete cell.dataset.taskId;
+          cell.classList.remove('has-value');
+          cell.draggable = false;
+        }
         const slotIndex = slotInputs.length;
         slotInputs.push({ input: quickInput, key });
         const moveFocusFrom = (fromIndex, delta, opts = {}) => {
@@ -2301,50 +2313,99 @@
             targetEntry.input.select();
           }
         };
-        let quickSubmitted = false;
-        const finalizeQuickAdd = (nextKey) => {
-          if(quickSubmitted) return;
+        const commitSlotValue = (opts = {}) => {
+          const nextKey = opts.nextKey || null;
           const text = quickInput.value.trim();
-          if(!text) return;
-          quickSubmitted = true;
-          if(nextKey){
-            pendingDaySlotFocus = { key: nextKey };
+          const currentTaskId = quickInput.dataset.taskId;
+          if(currentTaskId){
+            if(!text){
+              quickInput.value = originalTitle;
+              return false;
+            }
+            const changed = updateTaskTitleAndSync(currentTaskId, text);
+            if(changed){
+              if(nextKey){
+                pendingDaySlotFocus = { key: nextKey, select: true };
+              }
+              refreshAfterStateChange();
+              return true;
+            }
+            if(nextKey && nextKey !== key){
+              pendingDaySlotFocus = { key: nextKey, select: true };
+            }
+            return false;
           }
-          createManualTask(text, { dueDate: dayTimestamp, startTime: slotTimestamp });
-          refreshAfterStateChange();
+          if(!text) return false;
+          if(nextKey){
+            pendingDaySlotFocus = { key: nextKey, select: true };
+          }
+          const created = createManualTask(text, { dueDate: dayTimestamp, startTime: slotTimestamp });
+          if(created){
+            refreshAfterStateChange();
+            return true;
+          }
+          return false;
         };
         quickInput.addEventListener('keydown', (e) => {
           if(e.key === 'Enter'){
             e.preventDefault();
             const nextIdx = Math.min(slotInputs.length - 1, slotIndex + 1);
             const nextEntry = slotInputs[nextIdx];
-            const hasValue = quickInput.value.trim().length > 0;
-            if(hasValue){
-              finalizeQuickAdd(nextEntry ? nextEntry.key : null);
-            } else if(nextEntry && nextIdx !== slotIndex){
+            const nextKey = nextEntry ? nextEntry.key : null;
+            const committed = commitSlotValue({ nextKey });
+            if(!committed && nextEntry && nextIdx !== slotIndex){
               moveFocusFrom(slotIndex, nextIdx - slotIndex, { persist: false });
             }
           } else if(e.key === 'Tab'){
             e.preventDefault();
             const delta = e.shiftKey ? -1 : 1;
-            const hasValue = quickInput.value.trim().length > 0;
-            moveFocusFrom(slotIndex, delta, { persist: hasValue });
+            const nextIdx = slotIndex + delta;
+            const nextEntry = slotInputs[nextIdx];
+            const nextKey = nextEntry ? nextEntry.key : null;
+            const committed = commitSlotValue({ nextKey });
+            if(!committed){
+              const hasValue = quickInput.value.trim().length > 0 && !quickInput.dataset.taskId;
+              moveFocusFrom(slotIndex, delta, { persist: hasValue });
+            }
           } else if(e.key === 'ArrowDown'){
             e.preventDefault();
-            const hasValue = quickInput.value.trim().length > 0;
-            moveFocusFrom(slotIndex, 1, { persist: hasValue });
+            const nextIdx = slotIndex + 1;
+            const nextEntry = slotInputs[nextIdx];
+            const nextKey = nextEntry ? nextEntry.key : null;
+            const committed = commitSlotValue({ nextKey });
+            if(!committed){
+              const hasValue = quickInput.value.trim().length > 0 && !quickInput.dataset.taskId;
+              moveFocusFrom(slotIndex, 1, { persist: hasValue });
+            }
           } else if(e.key === 'ArrowUp'){
             e.preventDefault();
-            const hasValue = quickInput.value.trim().length > 0;
-            moveFocusFrom(slotIndex, -1, { persist: hasValue });
+            const nextIdx = slotIndex - 1;
+            const nextEntry = slotInputs[nextIdx];
+            const nextKey = nextEntry ? nextEntry.key : null;
+            const committed = commitSlotValue({ nextKey });
+            if(!committed){
+              const hasValue = quickInput.value.trim().length > 0 && !quickInput.dataset.taskId;
+              moveFocusFrom(slotIndex, -1, { persist: hasValue });
+            }
           } else if(e.key === 'Escape'){
             e.preventDefault();
-            quickInput.value = '';
+            if(quickInput.dataset.taskId){
+              quickInput.value = originalTitle;
+            } else {
+              quickInput.value = '';
+            }
             quickInput.blur();
           }
         });
         quickInput.addEventListener('blur', () => {
-          finalizeQuickAdd();
+          commitSlotValue();
+          if(primaryTask){
+            setTimeout(() => {
+              if(cell.dataset.taskId){
+                cell.draggable = true;
+              }
+            }, 100);
+          }
         });
         quickInput.addEventListener('dragover', (e) => {
           e.preventDefault();
@@ -2422,7 +2483,9 @@
         const target = dayGrid.querySelector(`.day-slot-input[data-slot-key="${pendingDaySlotFocus.key}"]`);
         if(target){
           target.focus();
-          if(typeof target.select === 'function') target.select();
+          if(pendingDaySlotFocus.select !== false && typeof target.select === 'function'){
+            target.select();
+          }
         }
         pendingDaySlotFocus = null;
       }
