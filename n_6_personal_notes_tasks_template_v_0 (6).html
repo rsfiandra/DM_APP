@@ -203,7 +203,7 @@
     .checklist{margin:6px 0 0;padding-left:22px}
 
     /* Kanban */
-    .kanban{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+    .kanban{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:start}
     .col{background:var(--kanban-col);border:1px solid var(--line);border-radius:12px;min-height:240px;display:flex;flex-direction:column}
     .col-head{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700}
     .col-body{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
@@ -602,8 +602,14 @@
     <section id="view-kanban" class="card" style="display:none">
       <div class="card-head">Kanban</div>
       <div class="card-body">
-        <div class="toolbar" style="margin-bottom:8px;">
-          <input id="kanbanNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+        <div class="toolbar" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <select id="kanbanGrouping" class="btn" aria-label="Group Kanban" style="flex:0 0 auto;min-width:150px;">
+            <option value="tab">Tab</option>
+            <option value="priority">Priority</option>
+            <option value="category">Category</option>
+            <option value="date">Date</option>
+          </select>
+          <input id="kanbanNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px;min-width:200px"/>
           <button class="btn" id="btnAddKanbanItem">Add</button>
         </div>
         <div class="kanban" id="kanban"></div>
@@ -743,6 +749,7 @@
 
     // ---------- State ----------
     const LSKEY='n6-notes-tasks-v1';
+    const KANBAN_GROUP_OPTIONS=['tab','priority','category','date'];
     let state=null, unsynced=false;
     // Track the index of the note item currently being dragged for reordering
     let dragNoteIndex = null;
@@ -750,7 +757,7 @@
       notes:'',
       tags:['Work','Home','Urgent'],
       tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
-      settings:{theme:'regal'}
+      settings:{theme:'regal',kanbanGrouping:'tab'}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
     function load(){
@@ -762,6 +769,13 @@
         if(typeof t.details !== 'string') t.details = '';
         return t;
       });
+      if(!state.settings || typeof state.settings !== 'object'){
+        state.settings = {theme:'regal',kanbanGrouping:'tab'};
+      }
+      if(typeof state.settings.theme !== 'string') state.settings.theme='regal';
+      if(!KANBAN_GROUP_OPTIONS.includes(state.settings.kanbanGrouping)){
+        state.settings.kanbanGrouping='tab';
+      }
     }
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
@@ -799,6 +813,23 @@
     }
     document.querySelectorAll('.tab-buttons button').forEach(b=> b.addEventListener('click', ()=>showView(b.dataset.view)) );
     document.getElementById('tabSelect').addEventListener('change', (e)=>showView(e.target.value));
+
+    const kanbanGroupingSelect=document.getElementById('kanbanGrouping');
+    if(kanbanGroupingSelect){
+      kanbanGroupingSelect.value=getKanbanGroupingValue();
+      kanbanGroupingSelect.addEventListener('change',(e)=>{
+        const value=e.target.value;
+        const next=KANBAN_GROUP_OPTIONS.includes(value)? value : 'tab';
+        if(!state.settings || typeof state.settings!=='object'){
+          state.settings={theme:'regal',kanbanGrouping:next};
+        }
+        if(state.settings.kanbanGrouping!==next){
+          state.settings.kanbanGrouping=next;
+          markDirty();
+        }
+        renderKanban();
+      });
+    }
 
     // ---------- Notes ----------
     const notesInput = document.getElementById('notesInput'); const notesPreview = document.getElementById('notesPreview');
@@ -1374,6 +1405,197 @@
     });
     document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); }});
 
+    const titleize=(str)=>{
+      return String(str||'')
+        .replace(/[-_]+/g,' ')
+        .replace(/\b([a-z])/g,(m,chr)=>chr.toUpperCase())
+        || '';
+    };
+
+    function getKanbanGroupingValue(){
+      const raw = state?.settings?.kanbanGrouping;
+      return KANBAN_GROUP_OPTIONS.includes(raw) ? raw : 'tab';
+    }
+
+    function buildKanbanGrouping(grouping){
+      const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+      if(grouping==='priority'){
+        const lanes=[
+          {key:'p1', name:'P1'},
+          {key:'p2', name:'P2'},
+          {key:'p3', name:'P3'},
+          {key:'p4', name:'P4'},
+          {key:'p5', name:'P5+'}
+        ];
+        const clampPriority=(value)=>{
+          const num=Number(value);
+          if(!Number.isFinite(num) || num<1) return 5;
+          return Math.min(Math.floor(num),5);
+        };
+        return {
+          lanes,
+          getKey:(task)=>`p${clampPriority(task?.priority)}`,
+          apply:(task,laneKey)=>{
+            const target=clampPriority(laneKey?.slice(1));
+            if(task.priority===target) return false;
+            task.priority=target;
+            return true;
+          }
+        };
+      }
+      if(grouping==='category'){
+        const freq=new Map();
+        tasks.forEach(task=>{
+          const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+          if(firstTag){
+            const key=firstTag.trim();
+            freq.set(key,(freq.get(key)||0)+1);
+          }
+        });
+        const sorted=Array.from(freq.entries()).sort((a,b)=>{
+          if(b[1]!==a[1]) return b[1]-a[1];
+          return a[0].localeCompare(b[0]);
+        });
+        const MAX_TAG_COLUMNS=3;
+        const primaryTags=sorted.slice(0,MAX_TAG_COLUMNS).map(([tag])=>tag);
+        const lanes=[];
+        primaryTags.forEach(tag=>{
+          lanes.push({key:`tag:${tag}`, name:tag});
+        });
+        const hasUntagged=tasks.some(task=>!Array.isArray(task?.tags) || task.tags.length===0);
+        const hasOther=tasks.some(task=>{
+          const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+          if(!firstTag) return false;
+          return !primaryTags.includes(firstTag);
+        });
+        if(hasUntagged && lanes.length<5){
+          lanes.push({key:'tag:__untagged', name:'Untagged'});
+        }
+        if(hasOther && lanes.length<5){
+          lanes.push({key:'tag:__other', name:'Other'});
+        }
+        if(!lanes.some(l=>l.key==='tag:__untagged') && lanes.length<5){
+          const otherIndex=lanes.findIndex(l=>l.key==='tag:__other');
+          const insertIndex = otherIndex>=0 ? otherIndex : lanes.length;
+          lanes.splice(insertIndex,0,{key:'tag:__untagged', name:'Untagged'});
+        }
+        if(!lanes.some(l=>l.key==='tag:__other')){
+          if(lanes.length<5){
+            lanes.push({key:'tag:__other', name:'Other'});
+          } else if(lanes.length){
+            lanes[lanes.length-1]={key:'tag:__other', name:'Other'};
+          } else {
+            lanes.push({key:'tag:__other', name:'Other'});
+          }
+        }
+        if(lanes.length>5){
+          lanes.length=5;
+        }
+        const validKeys=new Set(lanes.map(l=>l.key));
+        const fallbackKey=lanes[lanes.length-1]?.key||'tag:__other';
+        return {
+          lanes,
+          getKey:(task)=>{
+            const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+            if(!firstTag) return validKeys.has('tag:__untagged')?'tag:__untagged':fallbackKey;
+            const laneKey=`tag:${firstTag}`;
+            return validKeys.has(laneKey)? laneKey : (validKeys.has('tag:__other')?'tag:__other':fallbackKey);
+          },
+          apply:(task,laneKey)=>{
+            if(!validKeys.has(laneKey)) return false;
+            if(laneKey==='tag:__untagged'){
+              if(!task.tags || !task.tags.length) return false;
+              task.tags=[];
+              return true;
+            }
+            if(laneKey==='tag:__other'){
+              if(!state.tags.includes('Other')) state.tags.push('Other');
+              if(Array.isArray(task.tags) && task.tags.length===1 && task.tags[0]==='Other') return false;
+              task.tags=['Other'];
+              return true;
+            }
+            const tagName=laneKey.slice(4);
+            if(!state.tags.includes(tagName)) state.tags.push(tagName);
+            if(Array.isArray(task.tags) && task.tags.length===1 && task.tags[0]===tagName) return false;
+            task.tags=[tagName];
+            return true;
+          }
+        };
+      }
+      if(grouping==='date'){
+        const lanes=[
+          {key:'late', name:'Late'},
+          {key:'today', name:'Today'},
+          {key:'week', name:'This Week'},
+          {key:'next', name:'Next Week'},
+          {key:'future', name:'Future'}
+        ];
+        const dayMs=24*60*60*1000;
+        const todayTs=getTodayTimestamp();
+        const startOfToday=todayTs;
+        const startOfTomorrow=startOfToday+dayMs;
+        const endOfWeekExclusive=startOfToday+7*dayMs;
+        const endOfNextWeekExclusive=startOfToday+14*dayMs;
+        const laneKeyForDate=(ts)=>{
+          if(!Number.isFinite(ts)) return 'future';
+          if(ts < startOfToday) return 'late';
+          if(ts < startOfTomorrow) return 'today';
+          if(ts < endOfWeekExclusive) return 'week';
+          if(ts < endOfNextWeekExclusive) return 'next';
+          return 'future';
+        };
+        return {
+          lanes,
+          getKey:(task)=>laneKeyForDate(Number(task?.dueDate)),
+          apply:(task,laneKey)=>{
+            const setters={
+              late:startOfToday-dayMs,
+              today:startOfToday,
+              week:startOfToday+2*dayMs,
+              next:endOfWeekExclusive+dayMs,
+              future:endOfNextWeekExclusive+dayMs
+            };
+            const target=setters[laneKey];
+            if(typeof target!=='number') return false;
+            if(task.dueDate===target) return false;
+            task.dueDate=target;
+            return true;
+          }
+        };
+      }
+      const base=[
+        {key:'backlog', name:'Backlog'},
+        {key:'ready', name:'Ready'},
+        {key:'doing', name:'Doing'},
+        {key:'review', name:'Review'},
+        {key:'done', name:'Done'}
+      ];
+      const seen=new Set(base.map(l=>l.key));
+      tasks.forEach(task=>{
+        const status=String(task?.status||'').trim().toLowerCase();
+        if(status && !seen.has(status) && base.length<5){
+          base.push({key:status, name:titleize(status)||'Custom'});
+          seen.add(status);
+        }
+      });
+      const lanes=base.slice(0,5);
+      const validKeys=new Set(lanes.map(l=>l.key));
+      const fallback=lanes[0]?.key||'backlog';
+      return {
+        lanes,
+        getKey:(task)=>{
+          const status=String(task?.status||'').trim().toLowerCase();
+          return validKeys.has(status)? status : fallback;
+        },
+        apply:(task,laneKey)=>{
+          if(!validKeys.has(laneKey)) return false;
+          if(task.status===laneKey) return false;
+          task.status=laneKey;
+          return true;
+        }
+      };
+    }
+
     function renderTasks(){
       document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
       taskListEl.innerHTML='';
@@ -1428,16 +1650,56 @@
 
     // ---------- Kanban (drag & drop) ----------
     function renderKanban(){
-      const root=document.getElementById('kanban'); root.innerHTML='';
-      const lanes=[{k:'backlog', name:'Backlog'},{k:'doing', name:'Doing'},{k:'done', name:'Done'}];
+      const root=document.getElementById('kanban');
+      if(!root) return;
+      root.innerHTML='';
+      const grouping=getKanbanGroupingValue();
+      const groupingSelect=document.getElementById('kanbanGrouping');
+      if(groupingSelect && groupingSelect.value!==grouping){
+        groupingSelect.value=grouping;
+      }
+      const config=buildKanbanGrouping(grouping);
+      const lanes=config.lanes||[];
+      if(!lanes.length){
+        root.innerHTML='<div class="subtle">No lanes available</div>';
+        return;
+      }
+      const laneTaskMap=new Map();
+      lanes.forEach(l=> laneTaskMap.set(l.key, []));
+      const fallbackKey=lanes[0]?.key||null;
+      (state.tasks||[]).forEach(task=>{
+        let laneKey=config.getKey? config.getKey(task):fallbackKey;
+        if(!laneTaskMap.has(laneKey)) laneKey=fallbackKey;
+        if(laneKey && laneTaskMap.has(laneKey)){
+          laneTaskMap.get(laneKey).push(task);
+        }
+      });
       lanes.forEach(l=>{
-        const col=document.createElement('div'); col.className='col'; col.dataset.lane=l.k;
+        const col=document.createElement('div'); col.className='col'; col.dataset.lane=l.key;
         const head=document.createElement('div'); head.className='col-head'; head.textContent = `${l.name}`; col.appendChild(head);
         const body=document.createElement('div'); body.className='col-body';
         body.addEventListener('dragover',(e)=>{ e.preventDefault(); body.classList.add('drag-over'); });
         body.addEventListener('dragleave',()=> body.classList.remove('drag-over'));
-        body.addEventListener('drop',(e)=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(t){ t.status=l.k; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderNotesList(); if(selectedDate) renderDay(selectedDate); } body.classList.remove('drag-over'); });
-        state.tasks.filter(t=>t.status===l.k).forEach(t=>{
+        body.addEventListener('drop',(e)=>{
+          e.preventDefault();
+          body.classList.remove('drag-over');
+          const id=e.dataTransfer.getData('text/plain');
+          const t=state.tasks.find(x=>x.id===id);
+          if(t){
+            const changed=config.apply? config.apply(t,l.key):false;
+            if(changed){
+              markDirty();
+            }
+            renderKanban();
+            renderGrid();
+            renderTasks();
+            renderTagPalette();
+            renderNotesList();
+            renderCalendar();
+            if(selectedDate) renderDay(selectedDate);
+          }
+        });
+        (laneTaskMap.get(l.key)||[]).forEach(t=>{
           const c=document.createElement('div');
           c.className='kb-card';
           c.dataset.taskId = t.id;
@@ -1448,10 +1710,13 @@
           applyTruncatedTitle(titleEl, t.title);
           const metaEl=document.createElement('div');
           metaEl.className='subtle';
-          let metaText = `P${t.priority}`;
-          if(t.tags?.length) metaText += ' • ' + t.tags.join(', ');
-          if(t.dueDate) metaText += ' • Due ' + formatDate(t.dueDate);
-          metaEl.textContent = metaText;
+          const parts=[];
+          const priorityLabel = (t.priority!=null && t.priority!=='') ? `P${t.priority}` : 'P?';
+          parts.push(priorityLabel);
+          if(grouping!=='tab' && t.status){ parts.push(titleize(t.status)||t.status); }
+          if(t.tags?.length) parts.push(t.tags.join(', '));
+          if(t.dueDate) parts.push('Due '+formatDate(t.dueDate));
+          metaEl.textContent = parts.filter(Boolean).join(' • ');
           c.appendChild(titleEl);
           c.appendChild(metaEl);
           if(t.details){ const detailEl=document.createElement('div'); detailEl.className='kanban-detail'; detailEl.textContent=t.details; c.appendChild(detailEl); }
