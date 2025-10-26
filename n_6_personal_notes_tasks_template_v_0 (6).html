@@ -772,6 +772,8 @@
       if(!Array.isArray(state.tasks)) state.tasks=[];
       state.tasks = state.tasks.filter(t => t && typeof t === 'object').map(t => {
         if(typeof t.details !== 'string') t.details = '';
+        t.status = normalizeStatusValue(t.status);
+        ensureLastActiveStatus(t);
         return t;
       });
       if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
@@ -786,12 +788,51 @@
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
 
+    function normalizeStatusValue(value){
+      if(typeof value!=='string') return 'backlog';
+      const trimmed=value.trim().toLowerCase();
+      return trimmed||'backlog';
+    }
+    function ensureLastActiveStatus(task){
+      if(!task || typeof task!=='object') return 'backlog';
+      const current = typeof task.lastActiveStatus==='string'? task.lastActiveStatus.trim().toLowerCase() : '';
+      if(current){ task.lastActiveStatus=current; return current; }
+      const status = normalizeStatusValue(task.status);
+      if(status==='done'){
+        task.lastActiveStatus='backlog';
+      } else {
+        task.lastActiveStatus=status;
+      }
+      return task.lastActiveStatus;
+    }
+    function applyTaskStatus(task,nextStatus){
+      if(!task || typeof task!=='object') return false;
+      const normalized=normalizeStatusValue(nextStatus);
+      const prevStatus=normalizeStatusValue(task.status);
+      if(normalized===prevStatus) return false;
+      if(prevStatus!=='done'){
+        task.lastActiveStatus=prevStatus;
+      }
+      if(normalized!=='done'){
+        task.lastActiveStatus=normalized;
+      }
+      task.status=normalized;
+      return true;
+    }
+    function setTaskCompletion(task,isDone){
+      if(!task || typeof task!=='object') return false;
+      if(isDone){
+        return applyTaskStatus(task,'done');
+      }
+      const restore=ensureLastActiveStatus(task);
+      return applyTaskStatus(task, restore);
+    }
     function compareTaskDisplayOrder(a,b){
       if(a===b) return 0;
       if(!a) return 1;
       if(!b) return -1;
-      const doneA = String(a.status||'').toLowerCase()==='done';
-      const doneB = String(b.status||'').toLowerCase()==='done';
+      const doneA = normalizeStatusValue(a.status)==='done';
+      const doneB = normalizeStatusValue(b.status)==='done';
       if(doneA!==doneB) return doneA?1:-1;
       const dueA = (typeof a.dueDate==='number' && Number.isFinite(a.dueDate))? a.dueDate : Infinity;
       const dueB = (typeof b.dueDate==='number' && Number.isFinite(b.dueDate))? b.dueDate : Infinity;
@@ -1005,9 +1046,11 @@
         checkbox.type = 'checkbox';
         checkbox.checked = task.status === 'done';
         checkbox.addEventListener('change', (e) => {
-          task.status = e.target.checked ? 'done' : 'backlog';
-          wrapper.classList.toggle('done', e.target.checked);
-          markDirty();
+          const changed = setTaskCompletion(task, e.target.checked);
+          wrapper.classList.toggle('done', task.status === 'done');
+          if(changed){
+            markDirty();
+          }
           renderTasks(); renderKanban(); renderGrid(); renderCalendar();
           if(selectedDate) renderDay(selectedDate);
           renderNotesList();
@@ -1218,10 +1261,11 @@
       const trimmed = (title || '').trim();
       if(!trimmed) return null;
       const now = Date.now();
+      const status = normalizeStatusValue(overrides.status || 'backlog');
       const task = {
         id: now.toString(36) + Math.random().toString(36).slice(2),
         title: trimmed,
-        status: typeof overrides.status === 'string' ? overrides.status : 'backlog',
+        status,
         priority: Number.isFinite(overrides.priority) ? overrides.priority : 2,
         tags: Array.isArray(overrides.tags) ? overrides.tags.slice() : [],
         checklist: Array.isArray(overrides.checklist) ? overrides.checklist.map(item => ({
@@ -1233,6 +1277,7 @@
         startTime: Number.isFinite(overrides.startTime) ? overrides.startTime : null,
         details: typeof overrides.details === 'string' ? overrides.details : ''
       };
+      task.lastActiveStatus = status === 'done' ? 'backlog' : status;
       state.tasks.unshift(task);
       const manualOrder = ensureManualOrder().filter(id => id !== task.id);
       manualOrder.unshift(task.id);
@@ -1366,10 +1411,21 @@
       items.forEach(it => {
         const key = 'notes:' + it.text.toLowerCase();
         const prev = mapOld.get(key);
+        const prevStatus = prev ? normalizeStatusValue(prev.status) : 'backlog';
+        const status = it.done ? 'done' : prevStatus;
+        const lastActiveStatus = (() => {
+          if(prev){
+            const stored = typeof prev.lastActiveStatus === 'string' ? prev.lastActiveStatus.trim().toLowerCase() : '';
+            if(stored) return normalizeStatusValue(stored);
+            if(prevStatus !== 'done') return prevStatus;
+          }
+          if(status !== 'done') return status;
+          return 'backlog';
+        })();
         next.push({
           id: prev?.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
           title: it.text,
-          status: it.done ? 'done' : (prev?.status || 'backlog'),
+          status,
           priority: prev?.priority ?? 2,
           tags: Array.isArray(prev?.tags) ? prev.tags : [],
           checklist: [],
@@ -1377,6 +1433,7 @@
           dueDate: prev ? (prev.dueDate ?? null) : getTodayTimestamp(),
           startTime: prev?.startTime ?? null,
           details: typeof prev?.details === 'string' ? prev.details : '',
+          lastActiveStatus,
           fromNotes: true,
           noteKey: key
         });
@@ -1691,9 +1748,7 @@
         },
         apply:(task,laneKey)=>{
           if(!validKeys.has(laneKey)) return false;
-          if(task.status===laneKey) return false;
-          task.status=laneKey;
-          return true;
+          return applyTaskStatus(task, laneKey);
         }
       };
     }
@@ -1736,7 +1791,7 @@
         del.addEventListener('click', ()=>{
           deleteTask(t);
         });
-        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
+        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ const changed=applyTaskStatus(t, e.target.value); if(changed){ markDirty(); } renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
         bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
         taskListEl.appendChild(card);
       });
@@ -1879,7 +1934,7 @@
       } else if(field === 'tags'){
         task.tags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
       } else if(field === 'status'){
-        task.status = raw || 'backlog';
+        applyTaskStatus(task, raw || 'backlog');
       } else if(field === 'title'){
         task.title = raw || '(untitled)';
       } else if(field === 'dueDate'){
@@ -1993,10 +2048,11 @@
         modalTitleInput.focus();
         modalTitleInput.select();
       }
-      const statusVal = task.status || 'backlog';
+      const statusVal = normalizeStatusValue(task.status);
+      const fallbackStatus = statusVal === 'done' ? ensureLastActiveStatus(task) : statusVal;
       modalStatusSelect.disabled = false;
       modalStatusSelect.value = statusVal;
-      modalStatusSelect.dataset.prevStatus = statusVal === 'done' ? 'backlog' : statusVal;
+      modalStatusSelect.dataset.prevStatus = fallbackStatus;
       if(modalCompleteToggle){
         modalCompleteToggle.checked = statusVal === 'done';
         modalStatusSelect.disabled = modalCompleteToggle.checked;
@@ -2057,28 +2113,32 @@
     if(modalCompleteToggle){
       modalCompleteToggle.addEventListener('change', () => {
         if(modalCompleteToggle.checked){
-          if(modalStatusSelect.value !== 'done'){
-            modalStatusSelect.dataset.prevStatus = modalStatusSelect.value || 'backlog';
-          }
+          const current = normalizeStatusValue(modalStatusSelect.value || (currentModalTask ? currentModalTask.status : 'backlog'));
+          const fallback = current === 'done' && currentModalTask ? ensureLastActiveStatus(currentModalTask) : current;
+          modalStatusSelect.dataset.prevStatus = fallback;
           modalStatusSelect.value = 'done';
           modalStatusSelect.disabled = true;
         } else {
           modalStatusSelect.disabled = false;
-          const prev = modalStatusSelect.dataset.prevStatus || 'backlog';
+          const prev = normalizeStatusValue(modalStatusSelect.dataset.prevStatus || (currentModalTask ? ensureLastActiveStatus(currentModalTask) : 'backlog'));
           modalStatusSelect.value = prev;
         }
       });
     }
     modalStatusSelect.addEventListener('change', () => {
-      if(modalStatusSelect.value === 'done'){
+      const normalized = normalizeStatusValue(modalStatusSelect.value);
+      if(normalized === 'done'){
+        const fallback = currentModalTask ? ensureLastActiveStatus(currentModalTask) : 'backlog';
+        modalStatusSelect.dataset.prevStatus = fallback;
         if(modalCompleteToggle){
           modalCompleteToggle.checked = true;
           modalStatusSelect.disabled = true;
         }
       } else {
-        modalStatusSelect.dataset.prevStatus = modalStatusSelect.value;
+        modalStatusSelect.dataset.prevStatus = normalized;
         if(modalCompleteToggle){
           modalCompleteToggle.checked = false;
+          modalStatusSelect.disabled = false;
         }
       }
     });
@@ -2097,9 +2157,13 @@
         currentModalTask.title = title || '(untitled)';
       }
       const isComplete = modalCompleteToggle && modalCompleteToggle.checked;
-      const statusChoice = modalStatusSelect.value || 'backlog';
-      currentModalTask.status = isComplete ? 'done' : statusChoice;
-      modalStatusSelect.dataset.prevStatus = currentModalTask.status === 'done' ? 'backlog' : currentModalTask.status;
+      const statusChoice = normalizeStatusValue(modalStatusSelect.value);
+      if(isComplete){
+        setTaskCompletion(currentModalTask, true);
+      } else {
+        applyTaskStatus(currentModalTask, statusChoice);
+      }
+      modalStatusSelect.dataset.prevStatus = ensureLastActiveStatus(currentModalTask);
       currentModalTask.priority = Number(modalPrioritySelect.value) || 2;
       const selectedTags = Array.from(modalTagContainer.querySelectorAll('.chip-tag.selected')).map(el => el.dataset.tag);
       currentModalTask.tags = selectedTags;
