@@ -69,11 +69,13 @@
   }
   .grid{
     display:grid; gap:14px; grid-template-columns: repeat(12, 1fr);
+    position:relative;
   }
   .card{
     grid-column: span 6; min-height: 380px;
     background: var(--card); border:1px solid var(--ring); border-radius:14px; overflow:hidden;
     display:flex; flex-direction:column;
+    position:relative; z-index:1;
   }
   @media (max-width: 1200px){ .card{ grid-column: span 12; } }
   .card-h{
@@ -84,12 +86,32 @@
   }
   .h-actions{ display:flex; gap:6px; align-items:center; }
   .card-b{ position:relative; flex:1; background:#0a0f20; overflow:auto; }
+  .card-b .skeleton{
+    position:absolute; inset:0;
+    background: linear-gradient(110deg, color-mix(in srgb, var(--panel) 88%, black 12%) 25%,
+              color-mix(in srgb, var(--panel) 70%, var(--brand3) 30%) 37%,
+              color-mix(in srgb, var(--panel) 88%, black 12%) 63%);
+    background-size:200% 100%;
+    animation:skeletonSlide 1.2s ease-in-out infinite;
+    border-radius:inherit;
+    opacity:1;
+    transition:opacity .3s ease;
+    pointer-events:none;
+  }
+  .card-b.loaded .skeleton{ opacity:0; pointer-events:none; }
   iframe{
     width:100%; height:100%; border:0; background:#0a0f20;
+    opacity:0; transition:opacity .3s ease;
+  }
+  .card-b.loaded iframe{ opacity:1; }
+  @keyframes skeletonSlide{
+    from{ background-position: 200% 0; }
+    to{ background-position: -200% 0; }
   }
   .badge{
     position:absolute; top:8px; left:8px; background:#0008; color:#fff; font-size:12px;
     padding:4px 8px; border-radius:999px; backdrop-filter: blur(6px); border:1px solid #ffffff22;
+    z-index:2;
   }
   .hint{
     position:absolute; inset:auto 10px 10px 10px; padding:10px 12px; border-radius:12px;
@@ -128,6 +150,10 @@
     height:6px; cursor:ns-resize;
     background: linear-gradient(90deg, color-mix(in srgb, var(--brand1) 40%, var(--panel) 60%),
                                       color-mix(in srgb, var(--brand2) 40%, var(--panel) 60%));
+  }
+  .app:not(.is-editing) .resizer,
+  .app:not(.is-editing) .resizer-x{
+    display:none;
   }
   .notes-area{
     width:100%; height:100%; padding:12px; color:var(--text); outline:none;
@@ -204,6 +230,22 @@
     top: 0;
     bottom: 0;
     right: 0;
+  }
+  .grid.editing::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background-image:
+      radial-gradient(circle, color-mix(in srgb, var(--brand3) 40%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity:0.35;
+    z-index:0;
+  }
+  .btn[aria-pressed="true"]{
+    background: var(--grad);
+    color:#fff;
+    border-color: transparent;
   }
 
   /* ===== Styles for Links page ===== */
@@ -308,6 +350,7 @@
     <div class="logo">N6 HUB</div>
     <div class="grow"></div>
     <button class="btn" id="btn-setup">Setup</button>
+    <button class="btn ghost" id="btn-layout" aria-pressed="false">Edit layout</button>
     <button class="btn ghost" id="btn-export">Export</button>
     <button class="btn ghost" id="btn-import">Import</button>
     <label class="tog" title="Toggle light/dark">
@@ -363,6 +406,7 @@
 
 <script>
 const LS_KEY = "n6hub:config:v2";
+const LAST_PAGE_KEY = "n6hub:lastPage";
 const DEFAULTS = [
   { page:"BI",      title:"ServiceNow",    url:"https://app.powerbi.com/reportEmbed?reportId=e1e7ca50-bdb4-4d95-a482-bfe8e1479cef&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
   { page:"BI",      title:"InMoment Tags", url:"https://app.powerbi.com/reportEmbed?reportId=9c9e03df-cf99-4d67-863b-4aabcf56adf8&autoAuth=true&ctid=c0a17cb1-4afe-40d4-9ed4-3bacc6d472e5", height:380 },
@@ -381,7 +425,22 @@ function loadConfig(){
   try{ return JSON.parse(localStorage.getItem(LS_KEY)) || DEFAULTS.slice(); }
   catch{ return DEFAULTS.slice(); }
 }
-function saveConfig(rows){ localStorage.setItem(LS_KEY, JSON.stringify(rows)); }
+let configSaveTimer = null;
+function saveConfig(rows, options = {}){
+  const write = () => localStorage.setItem(LS_KEY, JSON.stringify(rows));
+  if(options.debounce){
+    const wait = typeof options.wait === 'number' ? options.wait : 250;
+    clearTimeout(configSaveTimer);
+    configSaveTimer = setTimeout(() => {
+      configSaveTimer = null;
+      write();
+    }, wait);
+    return;
+  }
+  clearTimeout(configSaveTimer);
+  configSaveTimer = null;
+  write();
+}
 function uniquePages(rows){ return [...new Set(rows.map(r => (r.page||"").trim()).filter(Boolean))]; }
 // Element factory helper: assigns className, style, and data/aria attributes correctly
 function el(tag, props={}, ...kids){
@@ -404,6 +463,14 @@ function el(tag, props={}, ...kids){
   }
   return e;
 }
+function debounce(fn, wait=250){
+  let timer;
+  return function(...args){
+    const context = this;
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(context, args), wait);
+  };
+}
 function setStatus(msg){ document.getElementById("status").textContent = msg; }
 let rows = loadConfig();
 
@@ -418,11 +485,99 @@ if(!rows.some(r => r.page === 'Links')){
   rows.push({ page:'Links', title:'Links', type:'links', height:500, links: [], viewMode:'list' });
   saveConfig(rows);
 }
-let currentPage = uniquePages(rows)[0] || "Home";
+function decodeHashPage(){
+  const {hash} = window.location;
+  if(hash && hash.length > 1){
+    try{ return decodeURIComponent(hash.slice(1)); }
+    catch{ return hash.slice(1); }
+  }
+  return null;
+}
+function ensurePageAvailable(page){
+  const pages = uniquePages(rows);
+  if(page && pages.includes(page)) return page;
+  return pages[0] || 'Setup';
+}
+function updateHashFromPage(page, {replace=false} = {}){
+  const next = '#' + encodeURIComponent(page);
+  if(replace){
+    if(location.hash === next) return;
+    if(window.history && window.history.replaceState){
+      window.history.replaceState(null, '', next);
+      return;
+    }
+  }
+  if(location.hash !== next){
+    location.hash = next;
+  }
+}
+function rememberPage(page){ localStorage.setItem(LAST_PAGE_KEY, page); }
+const initialHashPage = decodeHashPage();
+const storedPage = localStorage.getItem(LAST_PAGE_KEY);
+let currentPage = ensurePageAvailable(initialHashPage || storedPage);
+rememberPage(currentPage);
+const initialShouldReplace = !initialHashPage || initialHashPage !== currentPage;
+updateHashFromPage(currentPage, {replace: initialShouldReplace});
 const tabbar = document.getElementById("tabbar");
 const cards = document.getElementById("cards");
-function renderTabs(){ tabbar.innerHTML = ""; const pages = uniquePages(rows); if(pages.length===0) pages.push("Setup"); for(const p of pages){ const b = el("button", {className:"chip" + (p===currentPage?" active":"")}); b.textContent = p; b.onclick = () => { currentPage = p; renderCards(); renderTabs(); }; tabbar.appendChild(b); } }
-function createResizer(card, rec){ const resize = el('div',{className:'resizer'}); resize.onpointerdown = (e) => { e.preventDefault(); const startY = e.clientY; const startH = parseFloat(card.style.minHeight) || card.offsetHeight; function move(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; card.style.minHeight = newH + 'px'; } function up(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; rec.height = Math.round(newH); saveConfig(rows); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); } document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); }; return resize; }
+const appEl = document.querySelector(".app");
+let layoutEditing = false;
+const saveNotesContent = debounce(value => localStorage.setItem('n6hub:notes', value), 300);
+function setCurrentPage(page, options = {}){
+  const pages = uniquePages(rows);
+  let next = page;
+  const fromHash = Boolean(options.fromHash);
+  const replaceHash = Boolean(options.replaceHash);
+  if(!pages.includes(next)){
+    next = pages[0] || 'Setup';
+  }
+  if(next === currentPage){
+    if(fromHash){
+      if(page !== next){
+        updateHashFromPage(next, {replace:true});
+      }
+    }else{
+      updateHashFromPage(next, {replace: replaceHash});
+    }
+    rememberPage(next);
+    return;
+  }
+  currentPage = next;
+  rememberPage(next);
+  if(fromHash){
+    if(page !== next){
+      updateHashFromPage(next, {replace:true});
+    }
+  }else{
+    updateHashFromPage(next, {replace: replaceHash});
+  }
+  renderTabs();
+  renderCards();
+}
+function renderTabs(){
+  tabbar.innerHTML = "";
+  const pages = uniquePages(rows);
+  if(pages.length === 0){
+    pages.push('Setup');
+  }
+  let pageChanged = false;
+  if(!pages.includes(currentPage)){
+    currentPage = pages[0];
+    rememberPage(currentPage);
+    updateHashFromPage(currentPage, {replace:true});
+    pageChanged = true;
+  }
+  for(const p of pages){
+    const b = el("button", {className:"chip" + (p===currentPage?" active":"")});
+    b.textContent = p;
+    b.onclick = () => setCurrentPage(p);
+    tabbar.appendChild(b);
+  }
+  if(pageChanged){
+    renderCards();
+  }
+}
+function createResizer(card, rec){ const resize = el('div',{className:'resizer'}); resize.onpointerdown = (e) => { if(!layoutEditing) return; e.preventDefault(); const startY = e.clientY; const startH = parseFloat(card.style.minHeight) || card.offsetHeight; function move(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; card.style.minHeight = newH + 'px'; } function up(ev){ const dy = ev.clientY - startY; let newH = startH + dy; if(newH < 100) newH = 100; rec.height = Math.round(newH); saveConfig(rows); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); } document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); }; return resize; }
 
 // Create a horizontal resizer to adjust card width (grid span). This allows users to drag the right edge
 // of an embed card and change how many grid columns it spans. The `isSingle` flag indicates
@@ -430,6 +585,7 @@ function createResizer(card, rec){ const resize = el('div',{className:'resizer'}
 function createWidthResizer(card, rec, isSingle){
   const resize = el('div',{className:'resizer-x'});
   resize.onpointerdown = (e) => {
+    if(!layoutEditing) return;
     e.preventDefault();
     const startX = e.clientX;
     // Determine starting span: use existing rec.span or default (full width if single card else half)
@@ -463,7 +619,7 @@ function createWidthResizer(card, rec, isSingle){
   return resize;
 }
 function renderWeatherPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 600)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Weather'); const body = el('div',{className:'card-b'}, el('div',{className:'tomorrow', 'data-location-id':'111783,128587,114900,122795,111151,124126','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'current6', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'}))), el('div',{className:'tomorrow','data-location-id':'111783','data-language':'EN','data-unit-system':'IMPERIAL','data-skin':'light','data-widget-type':'upcoming', style:'padding-bottom:22px;position:relative;'}, el('a',{href:'https://weather.tomorrow.io/', rel:'nofollow noopener noreferrer', target:'_blank', style:'position:absolute;bottom:0;transform:translateX(-50%);left:50%;'}, el('img',{alt:'Powered by Tomorrow.io', src:'https://weather-website-client.tomorrow.io/img/powered-by.svg', width:'250', height:'18'})))); card.append(h, body); cards.append(card); if(window.__TOMORROW__){ window.__TOMORROW__.renderWidget(); } }
-function renderNotesPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Notes'); const body = el('div',{className:'card-b'}); const notesArea = el('div',{className:'notes-area', contentEditable:'true'}); notesArea.innerText = localStorage.getItem('n6hub:notes') || ''; notesArea.oninput = () => { localStorage.setItem('n6hub:notes', notesArea.innerText); }; body.append(notesArea); card.append(h, body); cards.append(card); }
+function renderNotesPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Notes'); const body = el('div',{className:'card-b'}); const notesArea = el('div',{className:'notes-area', contentEditable:'true'}); notesArea.innerText = localStorage.getItem('n6hub:notes') || ''; notesArea.oninput = () => { saveNotesContent(notesArea.innerText); }; body.append(notesArea); card.append(h, body); cards.append(card); }
 function renderTasksPage(rec){ cards.innerHTML = ""; const card = el('div',{className:'card', style:'grid-column:span 12;min-height:'+(rec.height || 500)+'px'}); const h = el('div',{className:'card-h'}, rec.title || 'Tasks'); const body = el('div',{className:'card-b'}, el('div',{className:'hint', style:'display:block'}, 'Task list is empty. Add tasks via upcoming setup.')); card.append(h, body); cards.append(card); }
 
 // Render a spreadsheet-like table with arrow-key navigation and sortable columns
@@ -520,7 +676,7 @@ function renderTablePage(rec){
       // Save value on input
       td.oninput = () => {
         rec.data[r][c] = td.innerText;
-        saveConfig(rows);
+        saveConfig(rows, {debounce:true});
       };
       // Arrow key navigation
       td.onkeydown = (e) => {
@@ -673,7 +829,21 @@ function renderLinksPage(rec){
   cards.append(card);
   setStatus('Showing links.');
 }
-function cardHint(block, url){ block.classList.add("error"); block.querySelector(".hint").innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`; }
+function cardHint(block, url){
+  if(block._loadTimer){
+    clearTimeout(block._loadTimer);
+    block._loadTimer = null;
+  }
+  block.classList.add("error");
+  block.classList.add('loaded');
+  const card = block.closest('.card');
+  if(!card) return;
+  const hint = card.querySelector('.hint');
+  if(hint){
+    hint.style.display = 'block';
+    hint.innerHTML = `This site may block embedding (X-Frame-Options / CSP). <a href="${url}" target="_blank" style="color:#fff;text-decoration:underline">Open</a>`;
+  }
+}
 function renderCards(){
   // Handle special pages first
   if(currentPage === 'Weather'){
@@ -783,36 +953,67 @@ function renderCards(){
     if(!rec.type){ h.classList.add('embed'); }
     // Iframe with optional zoom
     const zoomVal = rec.zoom || 1;
-    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer'});
+    const iframeEl = el('iframe',{src: rec.url, referrerPolicy:'no-referrer', loading:'lazy'});
     // Apply zoom scaling: scale the iframe and adjust its intrinsic size so the container remains fixed.
     iframeEl.style.transform = 'scale('+zoomVal+')';
     iframeEl.style.transformOrigin = '0 0';
     iframeEl.style.width = (100/zoomVal) + '%';
     iframeEl.style.height = (100/zoomVal) + '%';
+    const badge = el('span',{className:'badge'}, (new URL(rec.url)).hostname );
+    const skeleton = el('div',{className:'skeleton','aria-hidden':'true'});
     const body = el('div',{className:'card-b'},
-      el('span',{className:'badge'}, (new URL(rec.url)).hostname ),
+      badge,
+      skeleton,
       iframeEl
     );
     // Append header, body, hint, vertical resizer and horizontal width resizer
+    const hintEl = el('div',{className:'hint'},'');
     card.append(
       h,
       body,
-      el('div',{className:'hint'},''),
+      hintEl,
       createResizer(card, rec),
       createWidthResizer(card, rec, isSingle)
     );
     // Show hint if embed fails to load
-    let timer = setTimeout(() => cardHint(body, rec.url), 2500);
-    body.querySelector('iframe').addEventListener('load',() => {
-      clearTimeout(timer);
+    const startHintTimer = () => {
+      clearTimeout(body._loadTimer);
+      body._loadTimer = setTimeout(() => cardHint(body, rec.url), 1200);
+    };
+    const finishLoading = () => {
+      if(body._loadTimer){
+        clearTimeout(body._loadTimer);
+        body._loadTimer = null;
+      }
       body.classList.remove('error');
-    });
+      body.classList.add('loaded');
+      hintEl.style.display = 'none';
+    };
+    body._loadTimer = null;
+    body._startHintTimer = startHintTimer;
+    startHintTimer();
+    body.querySelector('iframe').addEventListener('load', finishLoading);
     cards.append(card);
   }
   // Update status message
   setStatus('Showing '+list.length+' item(s) on “'+currentPage+'”.');
 }
-function reloadIframe(card){ const iframe = card.querySelector("iframe"); const src = iframe.getAttribute("src"); iframe.setAttribute("src", src); }
+function reloadIframe(card){
+  const iframe = card.querySelector("iframe");
+  if(!iframe) return;
+  const frameBody = iframe.closest('.card-b');
+  if(frameBody){
+    frameBody.classList.remove('error');
+    frameBody.classList.remove('loaded');
+    const hint = card.querySelector('.hint');
+    if(hint){ hint.style.display = 'none'; }
+    if(frameBody._startHintTimer){
+      frameBody._startHintTimer();
+    }
+  }
+  const src = iframe.getAttribute("src");
+  iframe.setAttribute("src", src);
+}
 const dlg = document.getElementById("dlg");
 const tbody = document.getElementById("tbody");
 function openSetup(){ dlg.showModal(); drawTable(); }
@@ -821,7 +1022,18 @@ function drawTable(){ tbody.innerHTML = ""; rows.forEach((r, i) => { const tr = 
 function addRow(){ rows.push({ page:"New", title:"New Card", url:"https://example.com", height:380 }); saveConfig(rows); drawTable(); renderTabs(); }
 function moveRow(i, dir){ const j = i + dir; if(j<0 || j>=rows.length) return; const t = rows[i]; rows[i] = rows[j]; rows[j] = t; saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
 function duplicateRow(i){ rows.splice(i+1, 0, {...rows[i]}); saveConfig(rows); drawTable(); }
-function removeRow(i){ rows.splice(i, 1); saveConfig(rows); drawTable(); renderTabs(); if(!uniquePages(rows).includes(currentPage)) currentPage = uniquePages(rows)[0] || "Setup"; renderCards(); }
+function removeRow(i){
+  rows.splice(i, 1);
+  saveConfig(rows);
+  drawTable();
+  const pages = uniquePages(rows);
+  if(!pages.includes(currentPage)){
+    setCurrentPage(pages[0] || 'Setup', {replaceHash:true});
+  }else{
+    renderTabs();
+    renderCards();
+  }
+}
 function seedExamples(){ rows = DEFAULTS.slice(); saveConfig(rows); drawTable(); renderTabs(); renderCards(); }
 function exportConfig(){ const json = JSON.stringify(rows, null, 2); const blob = new Blob([json], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = el("a",{href:url, download:"n6hub-config.json"}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 function importConfig(){ const input = el("input",{type:"file", accept:"application/json"}); input.onchange = async () => { const file = input.files[0]; if(!file) return; const text = await file.text(); try{ const next = JSON.parse(text); if(!Array.isArray(next)) throw new Error("Invalid format"); rows = next; saveConfig(rows); renderTabs(); renderCards(); if(dlg.open) drawTable(); }catch(e){ alert("Import failed: " + e.message); } }; input.click(); }
@@ -835,6 +1047,20 @@ document.getElementById("seed").onclick = seedExamples;
 document.getElementById("save").onclick = () => { saveConfig(rows); setStatus("Saved."); };
 document.getElementById("btn-export").onclick = exportConfig;
 document.getElementById("btn-import").onclick = importConfig;
+const layoutBtn = document.getElementById("btn-layout");
+function updateLayoutMode(enabled){
+  layoutEditing = enabled;
+  layoutBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  layoutBtn.textContent = enabled ? 'Lock layout' : 'Edit layout';
+  appEl.classList.toggle('is-editing', enabled);
+  cards.classList.toggle('editing', enabled);
+}
+layoutBtn.onclick = () => updateLayoutMode(!layoutEditing);
+updateLayoutMode(false);
+window.addEventListener('hashchange', () => {
+  const pageFromHash = decodeHashPage();
+  setCurrentPage(pageFromHash, {fromHash:true});
+});
 renderTabs();
 renderCards();
 (function(d,s,id){
