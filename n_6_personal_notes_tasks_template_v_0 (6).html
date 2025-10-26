@@ -402,6 +402,21 @@
       border-radius:6px;
       padding:2px;
     }
+    .day-slot-input{
+      width:100%;
+      margin-top:4px;
+      padding:4px 8px;
+      border:1px solid var(--line);
+      border-radius:6px;
+      font:inherit;
+      background:#fff;
+      color:var(--ink);
+    }
+    .day-slot-input:focus{
+      outline:2px solid rgba(255,138,0,0.35);
+      border-color:rgba(255,138,0,0.6);
+    }
+    .day-slot-input::placeholder{color:var(--muted);}
     .day-cell.drag-over{
       border-color:var(--kanban-drop);
       background:var(--kanban-drop);
@@ -1093,6 +1108,57 @@
       ['kanbanNewItemInput', 'btnAddKanbanItem'],
       ['calendarNewItemInput', 'btnAddCalendarItem']
     ].forEach(([inputId, buttonId]) => registerNewItemInput(inputId, buttonId));
+    function createManualTask(title, overrides={}){
+      const trimmed = (title || '').trim();
+      if(!trimmed) return null;
+      const now = Date.now();
+      const task = {
+        id: now.toString(36) + Math.random().toString(36).slice(2),
+        title: trimmed,
+        status: typeof overrides.status === 'string' ? overrides.status : 'backlog',
+        priority: Number.isFinite(overrides.priority) ? overrides.priority : 2,
+        tags: Array.isArray(overrides.tags) ? overrides.tags.slice() : [],
+        checklist: Array.isArray(overrides.checklist) ? overrides.checklist.map(item => ({
+          t: String(item?.t || '').trim(),
+          done: !!item?.done
+        })).filter(entry => entry.t) : [],
+        createdAt: Number.isFinite(overrides.createdAt) ? overrides.createdAt : now,
+        dueDate: Number.isFinite(overrides.dueDate) ? overrides.dueDate : getTodayTimestamp(),
+        startTime: Number.isFinite(overrides.startTime) ? overrides.startTime : null,
+        details: typeof overrides.details === 'string' ? overrides.details : ''
+      };
+      state.tasks.unshift(task);
+      return task;
+    }
+
+    function updateTaskTitleAndSync(taskId, nextTitle){
+      const task = state.tasks.find(t => t && t.id === taskId);
+      if(!task) return false;
+      const trimmed = (nextTitle || '').trim();
+      if(!trimmed) return false;
+      if(task.title === trimmed) return false;
+      if(task.fromNotes){
+        const lines = String(state.notes || '').split(/\r?\n/);
+        const target = (task.title || '').trim().toLowerCase();
+        const idx = lines.findIndex(line => {
+          const clean = line.replace(/^\s*-\s*\[(?: |x|X)\]\s*/, '').replace(/^\s*-\s*/, '').trim().toLowerCase();
+          return clean === target;
+        });
+        if(idx < 0) return false;
+        const line = lines[idx];
+        const hasCheckbox = /^\s*-\s*\[(?: |x|X)\]/.test(line);
+        const prefix = hasCheckbox ? (task.status === 'done' ? '- [x] ' : '- [ ] ') : '- ';
+        lines[idx] = prefix + trimmed;
+        state.notes = lines.join('\n');
+        notesInput.value = state.notes;
+        task.title = trimmed;
+        task.noteKey = 'notes:' + trimmed.toLowerCase();
+        syncNotesToTasks();
+        return true;
+      }
+      task.title = trimmed;
+      return true;
+    }
     function insertAtCursor(el, str){ const s=el.selectionStart||0, e=el.selectionEnd||0, v=el.value; el.value = v.slice(0,s) + str + v.slice(e); el.focus(); const pos = s + str.length; el.setSelectionRange(pos,pos); }
 
     // Auto-continue checklist items on Enter: always add '- [ ] ' prefix when continuing a list
@@ -1988,8 +2054,81 @@
       const mm = parseInt(parts[1],10);
       const dd = parseInt(parts[2],10);
       const dtBase = new Date(yy, mm-1, dd);
+      const dayTimestamp = dtBase.getTime();
       daySidebarMonth = new Date(yy, mm-1, 1);
       renderDaySidebarCalendar();
+      function refreshAfterStateChange(){
+        markDirty();
+        renderNotesList();
+        renderTasks(); renderKanban(); renderGrid(); renderCalendar();
+        renderDay(dateStr);
+      }
+      function beginInlineEdit(taskId, host){
+        if(!host || host.dataset.inlineEditing === '1') return;
+        const task = state.tasks.find(t => t && t.id === taskId);
+        if(!task) return;
+        host.dataset.inlineEditing = '1';
+        host.draggable = false;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = task.title || '';
+        input.className = 'day-slot-input';
+        host.innerHTML = '';
+        host.appendChild(input);
+        let finished = false;
+        const finish = (commit) => {
+          if(finished) return;
+          finished = true;
+          if(commit){
+            const updated = updateTaskTitleAndSync(taskId, input.value);
+            if(updated){
+              refreshAfterStateChange();
+              return;
+            }
+          }
+          renderDay(dateStr);
+        };
+        input.addEventListener('keydown', (ev) => {
+          if(ev.key === 'Enter'){
+            ev.preventDefault();
+            finish(true);
+          } else if(ev.key === 'Escape'){
+            ev.preventDefault();
+            finish(false);
+          }
+        });
+        input.addEventListener('blur', () => finish(true));
+        requestAnimationFrame(() => {
+          input.focus();
+          input.select();
+        });
+      }
+      function setupDayTaskInteractions(taskEl, taskId){
+        if(!taskEl) return;
+        let clickTimer = null;
+        taskEl.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if(taskEl.dataset.inlineEditing === '1') return;
+          if(ev.target && ev.target.tagName === 'INPUT') return;
+          if(clickTimer) clearTimeout(clickTimer);
+          clickTimer = window.setTimeout(() => {
+            clickTimer = null;
+            if(taskEl.dataset.preventModal === '1') return;
+            openTaskModalForId(taskId);
+          }, 170);
+        });
+        taskEl.addEventListener('dblclick', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+          }
+          taskEl.dataset.preventModal = '1';
+          beginInlineEdit(taskId, taskEl);
+          setTimeout(() => { delete taskEl.dataset.preventModal; }, 250);
+        });
+      }
       // Update header label
       dayLabel.textContent = dtBase.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
       // Clear containers
@@ -2055,11 +2194,7 @@
         div.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', t.id);
         });
-        // clicking opens modal
-        div.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          openTaskModalForId(t.id);
-        });
+        setupDayTaskInteractions(div, t.id);
         unscheduled.appendChild(div);
       });
       // Drag target: unscheduled container resets startTime
@@ -2076,12 +2211,9 @@
         const task = state.tasks.find(x => x.id === id);
         if(task){
           // assign this day if dueDate null or other day
-          task.dueDate = new Date(yy, mm-1, dd).getTime();
+          task.dueDate = dayTimestamp;
           task.startTime = null;
-          markDirty();
-          renderDay(dateStr);
-          renderCalendar();
-          renderTasks(); renderKanban(); renderGrid(); renderNotesList();
+          refreshAfterStateChange();
         }
         unscheduled.classList.remove('drag-over');
       });
@@ -2104,6 +2236,7 @@
         cell.className = 'day-cell';
         const key = zeroPad(h) + ':' + zeroPad(m);
         const list = (schedMap[key] || []).slice();
+        const slotTimestamp = new Date(yy, mm-1, dd, h, m).getTime();
         // Sort by priority then createdAt
         list.sort((a,b) => {
           if(a.priority !== b.priority) return a.priority - b.priority;
@@ -2134,13 +2267,55 @@
           div.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', t.id);
           });
-          // clicking opens modal
-          div.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            openTaskModalForId(t.id);
-          });
+          setupDayTaskInteractions(div, t.id);
           cell.appendChild(div);
         });
+        const quickInput = document.createElement('input');
+        quickInput.type = 'text';
+        quickInput.placeholder = 'Add item…';
+        quickInput.className = 'day-slot-input';
+        quickInput.setAttribute('aria-label', `Add item at ${timeLabel.textContent}`);
+        let quickSubmitted = false;
+        const finalizeQuickAdd = () => {
+          if(quickSubmitted) return;
+          const text = quickInput.value.trim();
+          if(!text) return;
+          quickSubmitted = true;
+          createManualTask(text, { dueDate: dayTimestamp, startTime: slotTimestamp });
+          refreshAfterStateChange();
+        };
+        quickInput.addEventListener('keydown', (e) => {
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            finalizeQuickAdd();
+          } else if(e.key === 'Escape'){
+            e.preventDefault();
+            quickInput.value = '';
+            quickInput.blur();
+          }
+        });
+        quickInput.addEventListener('blur', () => {
+          finalizeQuickAdd();
+        });
+        quickInput.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          cell.classList.add('drag-over');
+        });
+        quickInput.addEventListener('dragleave', () => {
+          cell.classList.remove('drag-over');
+        });
+        quickInput.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain');
+          const task = state.tasks.find(x => x.id === id);
+          if(task){
+            task.dueDate = dayTimestamp;
+            task.startTime = slotTimestamp;
+            refreshAfterStateChange();
+          }
+          cell.classList.remove('drag-over');
+        });
+        cell.appendChild(quickInput);
         // Drag handlers for cell
         // handle drag-and-drop on the cell itself
         cell.addEventListener('dragover', (e) => {
@@ -2156,13 +2331,9 @@
           const task = state.tasks.find(x => x.id === id);
           if(task){
             // update to this day's date and this slot's time
-            task.dueDate = new Date(yy, mm-1, dd).getTime();
-            const dtNew = new Date(yy, mm-1, dd, h, m);
-            task.startTime = dtNew.getTime();
-            markDirty();
-            renderDay(dateStr);
-            renderCalendar();
-            renderTasks(); renderKanban(); renderGrid(); renderNotesList();
+            task.dueDate = dayTimestamp;
+            task.startTime = slotTimestamp;
+            refreshAfterStateChange();
           }
           cell.classList.remove('drag-over');
         });
@@ -2184,13 +2355,10 @@
           if(task){
             const hh = parseInt(slot.dataset.hour, 10);
             const mm2 = parseInt(slot.dataset.minute, 10);
-            task.dueDate = new Date(yy, mm-1, dd).getTime();
+            task.dueDate = dayTimestamp;
             const dtNew = new Date(yy, mm-1, dd, hh, mm2);
             task.startTime = dtNew.getTime();
-            markDirty();
-            renderDay(dateStr);
-            renderCalendar();
-            renderTasks(); renderKanban(); renderGrid(); renderNotesList();
+            refreshAfterStateChange();
           }
           cell.classList.remove('drag-over');
         });
