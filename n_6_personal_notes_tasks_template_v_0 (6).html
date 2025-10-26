@@ -767,6 +767,7 @@
     };
     // selectedDate for day view
     let selectedDate = null;
+    let pendingDaySlotFocus = null;
     function showView(id){
       Object.keys(views).forEach(k=> views[k].style.display = k===id? '':'none');
       document.querySelectorAll('.tab-buttons button').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
@@ -2048,6 +2049,7 @@
       const unscheduled = document.getElementById('dayUnscheduled');
       const dayGrid = document.getElementById('dayGrid');
       if(!dayLabel || !unscheduled || !dayGrid) return;
+      const slotInputs = [];
       // Parse date components
       const parts = dateStr.split('-');
       const yy = parseInt(parts[0],10);
@@ -2274,20 +2276,67 @@
         quickInput.type = 'text';
         quickInput.placeholder = 'Add item…';
         quickInput.className = 'day-slot-input';
+        quickInput.dataset.slotKey = key;
         quickInput.setAttribute('aria-label', `Add item at ${timeLabel.textContent}`);
+        const slotIndex = slotInputs.length;
+        slotInputs.push({ input: quickInput, key });
+        const moveFocusFrom = (fromIndex, delta, opts = {}) => {
+          const targetIndex = fromIndex + delta;
+          if(targetIndex < 0 || targetIndex >= slotInputs.length) return;
+          const targetEntry = slotInputs[targetIndex];
+          if(!targetEntry) return;
+          const persist = !!opts.persist;
+          if(persist){
+            pendingDaySlotFocus = { key: targetEntry.key };
+            setTimeout(() => {
+              if(document.activeElement === targetEntry.input){
+                pendingDaySlotFocus = null;
+              }
+            }, 150);
+          } else {
+            pendingDaySlotFocus = null;
+          }
+          targetEntry.input.focus();
+          if(typeof targetEntry.input.select === 'function'){
+            targetEntry.input.select();
+          }
+        };
         let quickSubmitted = false;
-        const finalizeQuickAdd = () => {
+        const finalizeQuickAdd = (nextKey) => {
           if(quickSubmitted) return;
           const text = quickInput.value.trim();
           if(!text) return;
           quickSubmitted = true;
+          if(nextKey){
+            pendingDaySlotFocus = { key: nextKey };
+          }
           createManualTask(text, { dueDate: dayTimestamp, startTime: slotTimestamp });
           refreshAfterStateChange();
         };
         quickInput.addEventListener('keydown', (e) => {
           if(e.key === 'Enter'){
             e.preventDefault();
-            finalizeQuickAdd();
+            const nextIdx = Math.min(slotInputs.length - 1, slotIndex + 1);
+            const nextEntry = slotInputs[nextIdx];
+            const hasValue = quickInput.value.trim().length > 0;
+            if(hasValue){
+              finalizeQuickAdd(nextEntry ? nextEntry.key : null);
+            } else if(nextEntry && nextIdx !== slotIndex){
+              moveFocusFrom(slotIndex, nextIdx - slotIndex, { persist: false });
+            }
+          } else if(e.key === 'Tab'){
+            e.preventDefault();
+            const delta = e.shiftKey ? -1 : 1;
+            const hasValue = quickInput.value.trim().length > 0;
+            moveFocusFrom(slotIndex, delta, { persist: hasValue });
+          } else if(e.key === 'ArrowDown'){
+            e.preventDefault();
+            const hasValue = quickInput.value.trim().length > 0;
+            moveFocusFrom(slotIndex, 1, { persist: hasValue });
+          } else if(e.key === 'ArrowUp'){
+            e.preventDefault();
+            const hasValue = quickInput.value.trim().length > 0;
+            moveFocusFrom(slotIndex, -1, { persist: hasValue });
           } else if(e.key === 'Escape'){
             e.preventDefault();
             quickInput.value = '';
@@ -2368,6 +2417,14 @@
         if(h === endHour - 1 && m === 30) break;
         m += 30;
         if(m >= 60){ m = 0; h++; }
+      }
+      if(pendingDaySlotFocus && pendingDaySlotFocus.key){
+        const target = dayGrid.querySelector(`.day-slot-input[data-slot-key="${pendingDaySlotFocus.key}"]`);
+        if(target){
+          target.focus();
+          if(typeof target.select === 'function') target.select();
+        }
+        pendingDaySlotFocus = null;
       }
     }
 
