@@ -2155,8 +2155,9 @@
         return isSameDate(ddt, dtBase);
       });
       // Separate into unscheduled (no startTime or startTime outside 6-16:30) and scheduled
-      const uns = [];
+      const unsCandidates = [];
       const schedMap = {};
+      const scheduledIds = new Set();
       tasksForDay.forEach(t => {
         const dueMatch = t.dueDate != null ? isSameDate(new Date(t.dueDate), dtBase) : false;
         const hasStart = Number.isFinite(t.startTime);
@@ -2170,14 +2171,15 @@
             const key = zeroPad(hour) + ':' + zeroPad(minute);
             if(!schedMap[key]) schedMap[key] = [];
             schedMap[key].push(t);
+            scheduledIds.add(t.id);
             return;
           }
           // Tasks with a start time that doesn't align with the visible window fall back to the unscheduled list.
-          uns.push(t);
+          unsCandidates.push(t);
           return;
         }
         // No start time: treat as unscheduled. Only include if due date matches or dueDate is null.
-        if(dueMatch || !t.dueDate) uns.push(t);
+        if(dueMatch || !t.dueDate) unsCandidates.push(t);
       });
       function appendUnscheduledCard(t){
         const div = document.createElement('div');
@@ -2214,7 +2216,9 @@
         unscheduled.appendChild(div);
       }
       // Render unscheduled tasks
-      uns.forEach(t => appendUnscheduledCard(t));
+      unsCandidates
+        .filter(task => !scheduledIds.has(task.id))
+        .forEach(t => appendUnscheduledCard(t));
       // Drag target: unscheduled container resets startTime
       unscheduled.addEventListener('dragover', (e) => {
         e.preventDefault();
