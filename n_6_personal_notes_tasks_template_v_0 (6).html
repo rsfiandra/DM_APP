@@ -576,6 +576,10 @@
     <section id="view-kanban" class="card" style="display:none">
       <div class="card-head">Kanban</div>
       <div class="card-body">
+        <div class="toolbar" style="margin-bottom:8px;">
+          <input id="kanbanNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+          <button class="btn" id="btnAddKanbanItem">Add</button>
+        </div>
         <div class="kanban" id="kanban"></div>
       </div>
     </section>
@@ -607,6 +611,10 @@
     <section id="view-calendar" class="card" style="display:none">
       <div class="card-head">Calendar</div>
       <div class="card-body">
+        <div class="toolbar" style="margin-bottom:8px;">
+          <input id="calendarNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+          <button class="btn" id="btnAddCalendarItem">Add</button>
+        </div>
         <div class="toolbar" style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
           <button class="btn" id="prevMonthBtn">&lt;</button>
           <div id="calendarMonthLabel" style="font-weight:700"></div>
@@ -1047,29 +1055,44 @@
       renderTasks(); renderKanban(); renderGrid(); renderCalendar();
       if(selectedDate) renderDay(selectedDate);
     });
-    // Add new checklist items via input and button
-    const newItemInput = document.getElementById('newItemInput');
-    const btnAddNoteItem = document.getElementById('btnAddNoteItem');
-    btnAddNoteItem.addEventListener('click', () => {
-      const text = (newItemInput.value || '').trim();
-      if(!text) return;
+    function appendNewChecklistItem(rawText){
+      const text = (rawText || '').trim();
+      if(!text) return false;
       const arr = String(state.notes || '').split(/\r?\n/).filter(l => l && !/^\s*$/.test(l));
       arr.push('- [ ] ' + text);
       state.notes = arr.join('\n');
       notesInput.value = state.notes;
-      newItemInput.value = '';
       syncNotesToTasks();
       markDirty();
       renderNotesList();
       renderTasks(); renderKanban(); renderGrid(); renderCalendar();
       if(selectedDate) renderDay(selectedDate);
-    });
-    newItemInput.addEventListener('keypress', (e) => {
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        btnAddNoteItem.click();
-      }
-    });
+      return true;
+    }
+
+    function registerNewItemInput(inputId, buttonId){
+      const input = document.getElementById(inputId);
+      const button = document.getElementById(buttonId);
+      if(!input || !button) return;
+      const commit = () => {
+        if(appendNewChecklistItem(input.value)){
+          input.value = '';
+        }
+      };
+      button.addEventListener('click', commit);
+      input.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          commit();
+        }
+      });
+    }
+
+    [
+      ['newItemInput', 'btnAddNoteItem'],
+      ['kanbanNewItemInput', 'btnAddKanbanItem'],
+      ['calendarNewItemInput', 'btnAddCalendarItem']
+    ].forEach(([inputId, buttonId]) => registerNewItemInput(inputId, buttonId));
     function insertAtCursor(el, str){ const s=el.selectionStart||0, e=el.selectionEnd||0, v=el.value; el.value = v.slice(0,s) + str + v.slice(e); el.focus(); const pos = s + str.length; el.setSelectionRange(pos,pos); }
 
     // Auto-continue checklist items on Enter: always add '- [ ] ' prefix when continuing a list
