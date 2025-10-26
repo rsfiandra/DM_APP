@@ -756,10 +756,12 @@
     let state=null, unsynced=false;
     // Track the index of the note item currently being dragged for reordering
     let dragNoteIndex = null;
+    let dragManualTaskId = null;
     const defaultState = ()=>({
       notes:'',
       tags:['Work','Home','Urgent'],
       tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
+      manualOrder:[],
       settings:{theme:'regal',kanbanGrouping:'tab'}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
@@ -772,6 +774,7 @@
         if(typeof t.details !== 'string') t.details = '';
         return t;
       });
+      if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
       if(!state.settings || typeof state.settings !== 'object'){
         state.settings = {theme:'regal',kanbanGrouping:'tab'};
       }
@@ -967,7 +970,21 @@
     function renderNotesList(){
       notesPreview.innerHTML = '';
       const manualTasks = state.tasks.filter(t => !t.fromNotes);
-      const tasksSorted = manualTasks.slice().sort(compareTaskDisplayOrder);
+      const manualOrder = ensureManualOrder();
+      const orderIndex = new Map(manualOrder.map((id, idx) => [id, idx]));
+      const baseIndex = new Map();
+      manualTasks.forEach((task, idx) => baseIndex.set(task.id, idx));
+      const tasksSorted = manualTasks.slice().sort((a, b) => {
+        const doneA = String(a.status||'').toLowerCase()==='done';
+        const doneB = String(b.status||'').toLowerCase()==='done';
+        if(doneA!==doneB) return doneA?1:-1;
+        const fallbackA = baseIndex.has(a.id) ? baseIndex.get(a.id) : manualTasks.length;
+        const fallbackB = baseIndex.has(b.id) ? baseIndex.get(b.id) : manualTasks.length;
+        const idxA = orderIndex.has(a.id) ? orderIndex.get(a.id) : manualOrder.length + fallbackA;
+        const idxB = orderIndex.has(b.id) ? orderIndex.get(b.id) : manualOrder.length + fallbackB;
+        if(idxA!==idxB) return idxA - idxB;
+        return (a.createdAt||0) - (b.createdAt||0);
+      });
       let appendedMainHeader = false;
       const ensureMainHeader = () => {
         if(appendedMainHeader) return;
@@ -981,7 +998,7 @@
         ensureMainHeader();
         const wrapper = document.createElement('div');
         wrapper.className = 'note-item note-check';
-        wrapper.draggable = false;
+        wrapper.draggable = true;
         wrapper.dataset.taskId = task.id;
         if(task.status === 'done'){ wrapper.classList.add('done'); }
         const checkbox = document.createElement('input');
@@ -994,6 +1011,41 @@
           renderTasks(); renderKanban(); renderGrid(); renderCalendar();
           if(selectedDate) renderDay(selectedDate);
           renderNotesList();
+        });
+        wrapper.addEventListener('dragstart', (e) => {
+          dragManualTaskId = task.id;
+          if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', task.id);
+          }
+        });
+        wrapper.addEventListener('dragend', () => {
+          dragManualTaskId = null;
+          wrapper.classList.remove('drag-over');
+        });
+        wrapper.addEventListener('dragover', (e) => {
+          if(!dragManualTaskId) return;
+          e.preventDefault();
+          wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragleave', () => {
+          wrapper.classList.remove('drag-over');
+        });
+        wrapper.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const fromId = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const toId = task.id;
+          wrapper.classList.remove('drag-over');
+          dragManualTaskId = null;
+          if(!fromId || !toId) return;
+          const rect = wrapper.getBoundingClientRect();
+          const insertAfter = e.clientY > rect.top + rect.height / 2;
+          const changed = reorderManualTaskOrder(fromId, toId, insertAfter);
+          if(changed){
+            markDirty();
+            renderNotesList();
+          }
         });
         const span = document.createElement('span');
         span.className = 'note-text';
@@ -1182,6 +1234,9 @@
         details: typeof overrides.details === 'string' ? overrides.details : ''
       };
       state.tasks.unshift(task);
+      const manualOrder = ensureManualOrder().filter(id => id !== task.id);
+      manualOrder.unshift(task.id);
+      state.manualOrder = manualOrder;
       return task;
     }
 
@@ -1328,6 +1383,42 @@
       });
       const manual = state.tasks.filter(t => !t.fromNotes);
       state.tasks = next.concat(manual);
+      ensureManualOrder();
+    }
+
+    function ensureManualOrder(){
+      if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
+      const manualTasks = state.tasks.filter(t => t && !t.fromNotes);
+      const existing = new Set();
+      state.manualOrder = state.manualOrder.filter(id => {
+        if(!manualTasks.some(task => task.id === id)) return false;
+        if(existing.has(id)) return false;
+        existing.add(id);
+        return true;
+      });
+      manualTasks.forEach(task => {
+        if(!existing.has(task.id)){
+          state.manualOrder.push(task.id);
+          existing.add(task.id);
+        }
+      });
+      return state.manualOrder;
+    }
+
+    function reorderManualTaskOrder(fromId, toId, insertAfter){
+      if(!fromId || !toId || fromId === toId) return false;
+      const order = ensureManualOrder().slice();
+      const fromIdx = order.indexOf(fromId);
+      let targetIdx = order.indexOf(toId);
+      if(fromIdx < 0 || targetIdx < 0) return false;
+      const [moved] = order.splice(fromIdx, 1);
+      if(fromIdx < targetIdx) targetIdx -= 1;
+      let insertIndex = insertAfter ? targetIdx + 1 : targetIdx;
+      if(insertIndex < 0) insertIndex = 0;
+      if(insertIndex > order.length) insertIndex = order.length;
+      order.splice(insertIndex, 0, moved);
+      state.manualOrder = order;
+      return true;
     }
 
     function deleteTask(task){
