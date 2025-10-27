@@ -1026,6 +1026,7 @@
       });
       groupColorPicker.addEventListener('change', () => {
         pendingGroupColorTarget = '';
+        groupColorPicker.blur();
       });
       return groupColorPicker;
     }
@@ -1034,8 +1035,28 @@
       const key = normalizeGroupValue(name);
       pendingGroupColorTarget = key;
       const current = getGroupColor(key);
-      picker.value = current || getDefaultGroupColor();
-      picker.click();
+      const nextValue = current || getDefaultGroupColor();
+      if(picker.value !== nextValue){
+        picker.value = nextValue;
+      } else {
+        picker.setAttribute('value', nextValue);
+      }
+      const invokePicker = () => {
+        if(typeof picker.showPicker === 'function'){
+          try {
+            picker.showPicker();
+            return;
+          } catch(err) {
+            /* fall through to click */
+          }
+        }
+        picker.focus({ preventScroll: true });
+        picker.click();
+      };
+      if(document.activeElement && document.activeElement !== picker){
+        document.activeElement.blur();
+      }
+      requestAnimationFrame(invokePicker);
     }
     function hexToRgba(hex, alpha){
       const rgb = hexToRgb(hex);
