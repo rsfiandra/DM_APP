@@ -153,6 +153,33 @@
       text-transform:uppercase;
     }
     .note-section-title:first-child{margin-top:0;}
+    .note-group-title{
+      font-size:13px;
+      font-weight:600;
+      color:var(--ink);
+      margin:12px 0 6px;
+    }
+    .note-group-container{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:4px 8px;
+      background:#fff;
+      margin-bottom:8px;
+      transition:background .2s,border-color .2s;
+    }
+    .note-group-container.drag-over{
+      border-color:var(--head-tint-border);
+      background:var(--head-tint);
+    }
+    .note-group-container.empty{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:13px;
+      padding:12px;
+    }
+    .note-group-placeholder{padding:8px 0;color:var(--muted);font-size:12px;text-align:center;}
     .note-item.note-task{
       cursor:pointer;
       align-items:flex-start;
@@ -200,6 +227,9 @@
     .tag-chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
     .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
+    .chip-tag.group-chip{position:relative;padding-right:26px;}
+    .chip-tag.group-chip .remove{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.7;cursor:pointer;}
+    .chip-tag.group-chip .remove:hover{opacity:1;}
     .task-list{display:grid;gap:10px}
     .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
     .task-title{
@@ -544,8 +574,10 @@
       <div class="card-head">Main</div>
       <div class="card-body">
         <!-- Input area for adding new checklist items -->
-        <div class="toolbar" style="margin-bottom:8px;">
-          <input id="newItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+        <div class="toolbar" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <input id="newItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px;min-width:160px"/>
+          <select id="newItemGroupSelect" class="btn" aria-label="Assign to group" style="min-width:160px;"></select>
+          <button class="btn" id="btnQuickAddGroup" type="button">+ Group</button>
           <button class="btn" id="btnAddNoteItem">Add</button>
         </div>
         <!-- Hidden textarea to store checklist items (kept for compatibility with internal logic) -->
@@ -590,6 +622,16 @@
               <input id="newTagInput" class="btn" placeholder="New tag name" style="padding:6px 10px"/>
               <button class="btn" id="btnAddTag">Add Tag</button>
             </div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="field"><label>Item Group</label>
+            <select id="taskGroupSelect" class="btn" style="width:100%;max-width:240px;min-width:160px" aria-label="Select item group"></select>
+            <div class="toolbar" style="margin-top:6px;gap:6px;">
+              <input id="newGroupInput" class="btn" placeholder="New group name" style="padding:6px 10px;flex:1;min-width:160px"/>
+              <button class="btn" id="btnAddGroup" type="button">Add Group</button>
+            </div>
+            <div class="tag-chips" id="groupPalette" style="margin-top:6px"></div>
           </div>
         </div>
         <div class="row">
@@ -638,6 +680,7 @@
               <tr>
                 <th data-key="title">Title</th>
                 <th data-key="status">Status</th>
+                <th data-key="group">Group</th>
                 <th data-key="priority">Priority</th>
                 <th data-key="dueDate">Due</th>
                 <th data-key="tags">Tags</th>
@@ -736,6 +779,9 @@
             <button class="btn" id="modalAddTag">Add Tag</button>
           </div>
         </div>
+        <div class="field"><label>Item Group</label>
+          <select id="modalGroupSelect" class="btn" style="width:100%;max-width:240px;min-width:160px"></select>
+        </div>
         <div class="toolbar" style="margin-top:12px">
           <button id="modalSaveBtn" class="btn primary">Save</button>
           <button id="modalCancelBtn" class="btn">Cancel</button>
@@ -774,7 +820,8 @@
       tags:['Work','Home','Urgent'],
       tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
       manualOrder:[],
-      settings:{theme:'regal',kanbanGrouping:'tab'}
+      itemGroups:['General'],
+      settings:{theme:'regal',kanbanGrouping:'tab',lastGroup:''}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
     function load(){
@@ -782,23 +829,131 @@
       catch(e){ state=defaultState(); }
       if(!Array.isArray(state.tags)) state.tags=[];
       if(!Array.isArray(state.tasks)) state.tasks=[];
+      if(!Array.isArray(state.itemGroups)) state.itemGroups=[];
+      state.itemGroups = ensureItemGroups();
+      const extraGroups = new Set();
       state.tasks = state.tasks.filter(t => t && typeof t === 'object').map(t => {
         if(typeof t.details !== 'string') t.details = '';
         t.status = normalizeStatusValue(t.status);
         ensureLastActiveStatus(t);
+        t.group = normalizeGroupValue(t.group);
+        if(t.group) extraGroups.add(t.group);
         return t;
       });
+      extraGroups.forEach(name => {
+        if(name && !state.itemGroups.includes(name)){
+          state.itemGroups.push(name);
+        }
+      });
+      state.itemGroups = ensureItemGroups();
       if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
       if(!state.settings || typeof state.settings !== 'object'){
-        state.settings = {theme:'regal',kanbanGrouping:'tab'};
+        state.settings = {theme:'regal',kanbanGrouping:'tab',lastGroup:''};
       }
       if(typeof state.settings.theme !== 'string') state.settings.theme='regal';
       if(!KANBAN_GROUP_OPTIONS.includes(state.settings.kanbanGrouping)){
         state.settings.kanbanGrouping='tab';
       }
+      const lastGroup = normalizeGroupValue(state.settings.lastGroup);
+      state.settings.lastGroup = lastGroup && state.itemGroups.includes(lastGroup) ? lastGroup : '';
     }
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
+
+    function sanitizeGroupName(name){
+      if(typeof name !== 'string') return '';
+      return name.trim().replace(/\s+/g,' ').slice(0, 80);
+    }
+    function normalizeGroupValue(name){
+      const normalized = sanitizeGroupName(name);
+      return normalized;
+    }
+    function ensureItemGroups(){
+      if(!Array.isArray(state.itemGroups)) state.itemGroups = [];
+      const seen = new Set();
+      const cleaned = [];
+      state.itemGroups.forEach(name => {
+        const normalized = sanitizeGroupName(name);
+        if(!normalized) return;
+        const key = normalized.toLowerCase();
+        if(seen.has(key)) return;
+        seen.add(key);
+        cleaned.push(normalized);
+      });
+      if(!cleaned.length){
+        cleaned.push('General');
+      }
+      state.itemGroups = cleaned;
+      return state.itemGroups;
+    }
+    function addItemGroup(name){
+      const normalized = normalizeGroupValue(name);
+      if(!normalized) return false;
+      ensureItemGroups();
+      if(state.itemGroups.includes(normalized)) return false;
+      state.itemGroups.push(normalized);
+      state.itemGroups.sort((a,b)=>a.localeCompare(b));
+      return true;
+    }
+    function removeItemGroup(name){
+      const normalized = normalizeGroupValue(name);
+      ensureItemGroups();
+      const idx = state.itemGroups.indexOf(normalized);
+      if(idx < 0) return false;
+      state.itemGroups.splice(idx,1);
+      state.tasks.forEach(task => {
+        if(normalizeGroupValue(task.group) === normalized){
+          task.group = '';
+        }
+      });
+      if(state.settings && normalizeGroupValue(state.settings.lastGroup) === normalized){
+        state.settings.lastGroup = '';
+      }
+      ensureItemGroups();
+      return true;
+    }
+    function getLastGroup(){
+      if(!state || !state.settings) return '';
+      const normalized = normalizeGroupValue(state.settings.lastGroup);
+      return normalized && state.itemGroups.includes(normalized) ? normalized : '';
+    }
+    function setLastGroup(name){
+      if(!state.settings || typeof state.settings !== 'object'){
+        state.settings = {theme:'regal',kanbanGrouping:'tab',lastGroup:''};
+      }
+      const normalized = normalizeGroupValue(name);
+      state.settings.lastGroup = normalized && state.itemGroups.includes(normalized) ? normalized : '';
+    }
+    function setTaskGroup(task, name){
+      if(!task || typeof task !== 'object') return false;
+      const normalized = normalizeGroupValue(name);
+      const current = normalizeGroupValue(task.group);
+      if(current === normalized) return false;
+      task.group = normalized;
+      if(normalized && !state.itemGroups.includes(normalized)){
+        state.itemGroups.push(normalized);
+        state.itemGroups.sort((a,b)=>a.localeCompare(b));
+      }
+      if(!normalized && current && state.settings && normalizeGroupValue(state.settings.lastGroup) === current){
+        state.settings.lastGroup = '';
+      }
+      return true;
+    }
+
+    function refreshTaskShellViews(){
+      renderGroupSelectors();
+      renderGroupManager();
+      renderTasks();
+      renderKanban();
+      renderGrid();
+      renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
+    }
+
+    function refreshTaskViews(){
+      renderNotesList();
+      refreshTaskShellViews();
+    }
 
     function normalizeStatusValue(value){
       if(typeof value!=='string') return 'backlog';
@@ -1048,12 +1203,102 @@
         notesPreview.appendChild(header);
         appendedMainHeader = true;
       };
+      const groupContainers = new Map();
+      const seenGroupKeys = new Set();
+      const groupOrder = [];
+      ensureItemGroups().forEach(name => {
+        const key = normalizeGroupValue(name);
+        if(key && !seenGroupKeys.has(key)){
+          seenGroupKeys.add(key);
+          groupOrder.push(key);
+        }
+      });
       tasksSorted.forEach(task => {
+        const key = normalizeGroupValue(task.group);
+        if(key && !seenGroupKeys.has(key)){
+          seenGroupKeys.add(key);
+          groupOrder.push(key);
+        }
+      });
+      const hasUngrouped = tasksSorted.some(task => !normalizeGroupValue(task.group));
+      if(hasUngrouped){
+        groupOrder.push('__ungrouped');
+      }
+      const ensureGroupPlaceholder = (container) => {
+        if(!container) return;
+        const hasItems = container.querySelector('.note-item');
+        let placeholder = container.querySelector('.note-group-placeholder');
+        if(hasItems){
+          if(placeholder) placeholder.remove();
+          container.classList.remove('empty');
+        } else {
+          if(!placeholder){
+            placeholder = document.createElement('div');
+            placeholder.className = 'note-group-placeholder';
+            placeholder.textContent = 'Drop items here';
+            container.appendChild(placeholder);
+          }
+          container.classList.add('empty');
+        }
+      };
+      const ensureGroupSection = (key) => {
         ensureMainHeader();
+        const normalizedKey = key || '__ungrouped';
+        if(groupContainers.has(normalizedKey)) return groupContainers.get(normalizedKey);
+        const title = document.createElement('div');
+        title.className = 'note-group-title';
+        title.textContent = normalizedKey === '__ungrouped' ? 'Ungrouped' : normalizedKey;
+        const container = document.createElement('div');
+        container.className = 'note-group-container';
+        container.dataset.group = normalizedKey;
+        ensureGroupPlaceholder(container);
+        container.addEventListener('dragover', (e) => {
+          if(!dragManualTaskId) return;
+          e.preventDefault();
+          container.classList.add('drag-over');
+        });
+        container.addEventListener('dragleave', () => {
+          container.classList.remove('drag-over');
+        });
+        container.addEventListener('drop', (e) => {
+          e.preventDefault();
+          container.classList.remove('drag-over');
+          const id = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          dragManualTaskId = null;
+          if(!id) return;
+          const task = state.tasks.find(x => x && x.id === id && !x.fromNotes);
+          if(!task) return;
+          const targetGroup = normalizedKey === '__ungrouped' ? '' : normalizedKey;
+          const groupChanged = setTaskGroup(task, targetGroup);
+          const orderChanged = moveManualTaskToGroupEnd(id, targetGroup);
+          if(groupChanged || orderChanged){
+            markDirty();
+            renderGroupSelectors();
+            renderGroupManager();
+            renderNotesList();
+            refreshTaskShellViews();
+          }
+        });
+        notesPreview.appendChild(title);
+        notesPreview.appendChild(container);
+        groupContainers.set(normalizedKey, container);
+        return container;
+      };
+      if(!groupOrder.length && manualTasks.length){
+        ensureGroupSection('__ungrouped');
+      }
+      groupOrder.forEach(key => ensureGroupSection(key));
+      tasksSorted.forEach(task => {
+        const groupKey = normalizeGroupValue(task.group) || '__ungrouped';
+        const container = ensureGroupSection(groupKey);
+        const placeholder = container.querySelector('.note-group-placeholder');
+        if(placeholder) placeholder.remove();
+        container.classList.remove('empty');
         const wrapper = document.createElement('div');
         wrapper.className = 'note-item note-check';
         wrapper.draggable = true;
         wrapper.dataset.taskId = task.id;
+        wrapper.dataset.groupKey = groupKey;
         if(task.status === 'done'){ wrapper.classList.add('done'); }
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -1064,8 +1309,7 @@
           if(changed){
             markDirty();
           }
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          refreshTaskShellViews();
           renderNotesList();
         });
         wrapper.addEventListener('dragstart', (e) => {
@@ -1097,10 +1341,18 @@
           if(!fromId || !toId) return;
           const rect = wrapper.getBoundingClientRect();
           const insertAfter = e.clientY > rect.top + rect.height / 2;
+          const host = wrapper.closest('.note-group-container');
+          const targetGroupKey = host ? (host.dataset.group || '__ungrouped') : '__ungrouped';
+          const targetGroup = targetGroupKey === '__ungrouped' ? '' : targetGroupKey;
+          const movedTask = state.tasks.find(x => x && x.id === fromId && !x.fromNotes);
+          const groupChanged = movedTask ? setTaskGroup(movedTask, targetGroup) : false;
           const changed = reorderManualTaskOrder(fromId, toId, insertAfter);
-          if(changed){
+          if(groupChanged || changed){
             markDirty();
+            renderGroupSelectors();
+            renderGroupManager();
             renderNotesList();
+            refreshTaskShellViews();
           }
         });
         const span = document.createElement('span');
@@ -1112,8 +1364,9 @@
           if(ev.target.closest('input')) return;
           openTaskModalForId(task.id);
         });
-        notesPreview.appendChild(wrapper);
+        container.appendChild(wrapper);
       });
+      groupContainers.forEach(container => ensureGroupPlaceholder(container));
       const lines = String(state.notes||'').split(/\r?\n/);
       lines.forEach((raw, idx) => {
         if(!raw || /^\s*$/.test(raw)) return;
@@ -1165,8 +1418,7 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          refreshTaskShellViews();
         });
         const span = document.createElement('span');
         span.className = 'note-text';
@@ -1210,8 +1462,7 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          refreshTaskShellViews();
           dragNoteIndex = null;
         });
         div.addEventListener('dragend', () => {
@@ -1229,8 +1480,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
     });
     function appendNewChecklistItem(rawText){
       const text = (rawText || '').trim();
@@ -1242,8 +1492,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
       return true;
     }
 
@@ -1252,6 +1501,22 @@
       const button = document.getElementById(buttonId);
       if(!input || !button) return;
       const commit = () => {
+        const text = (input.value || '').trim();
+        if(!text) return;
+        if(inputId === 'newItemInput'){
+          const selectedGroup = newItemGroupSelect ? normalizeGroupValue(newItemGroupSelect.value || getLastGroup()) : getLastGroup();
+          const created = createManualTask(text, { group: selectedGroup });
+          if(created){
+            if(newItemGroupSelect && selectedGroup){
+              newItemGroupSelect.value = selectedGroup;
+            }
+            setLastGroup(selectedGroup);
+            markDirty();
+            refreshTaskViews();
+          }
+          input.value = '';
+          return;
+        }
         if(appendNewChecklistItem(input.value)){
           input.value = '';
         }
@@ -1275,6 +1540,11 @@
       if(!trimmed) return null;
       const now = Date.now();
       const status = normalizeStatusValue(overrides.status || 'backlog');
+      const groupName = normalizeGroupValue(overrides.group != null ? overrides.group : getLastGroup());
+      if(groupName && !state.itemGroups.includes(groupName)){
+        state.itemGroups.push(groupName);
+        state.itemGroups.sort((a,b)=>a.localeCompare(b));
+      }
       const task = {
         id: now.toString(36) + Math.random().toString(36).slice(2),
         title: trimmed,
@@ -1288,7 +1558,8 @@
         createdAt: Number.isFinite(overrides.createdAt) ? overrides.createdAt : now,
         dueDate: Number.isFinite(overrides.dueDate) ? overrides.dueDate : getTodayTimestamp(),
         startTime: Number.isFinite(overrides.startTime) ? overrides.startTime : null,
-        details: typeof overrides.details === 'string' ? overrides.details : ''
+        details: typeof overrides.details === 'string' ? overrides.details : '',
+        group: groupName
       };
       task.lastActiveStatus = status === 'done' ? 'backlog' : status;
       state.tasks.unshift(task);
@@ -1448,7 +1719,8 @@
           details: typeof prev?.details === 'string' ? prev.details : '',
           lastActiveStatus,
           fromNotes: true,
-          noteKey: key
+          noteKey: key,
+          group: ''
         });
       });
       const manual = state.tasks.filter(t => !t.fromNotes);
@@ -1491,6 +1763,33 @@
       return true;
     }
 
+    function moveManualTaskToGroupEnd(taskId, groupName){
+      if(!taskId) return false;
+      const order = ensureManualOrder().slice();
+      const currentIdx = order.indexOf(taskId);
+      if(currentIdx < 0) return false;
+      const manualTasks = state.tasks.filter(t => t && !t.fromNotes);
+      const manualMap = new Map(manualTasks.map(t => [t.id, t]));
+      const normalizedGroup = normalizeGroupValue(groupName);
+      order.splice(currentIdx, 1);
+      let insertIndex = order.length;
+      for(let i = order.length - 1; i >= 0; i--){
+        const otherId = order[i];
+        const otherTask = manualMap.get(otherId);
+        if(!otherTask) continue;
+        const otherGroup = normalizeGroupValue(otherTask.group);
+        if(otherGroup === normalizedGroup){
+          insertIndex = i + 1;
+          break;
+        }
+      }
+      if(insertIndex < 0) insertIndex = 0;
+      if(insertIndex > order.length) insertIndex = order.length;
+      order.splice(insertIndex, 0, taskId);
+      state.manualOrder = order;
+      return true;
+    }
+
     function deleteTask(task){
       if(!task) return;
       if(task.fromNotes){
@@ -1510,8 +1809,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
     }
 
     function deleteTaskById(taskId){
@@ -1528,8 +1826,184 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
+    }
+
+    // ---------- Item groups ----------
+    const groupPaletteEl = document.getElementById('groupPalette');
+    const newGroupInput = document.getElementById('newGroupInput');
+    const btnAddGroup = document.getElementById('btnAddGroup');
+    const taskGroupSelect = document.getElementById('taskGroupSelect');
+    const newItemGroupSelect = document.getElementById('newItemGroupSelect');
+    const btnQuickAddGroup = document.getElementById('btnQuickAddGroup');
+    const modalGroupSelect = document.getElementById('modalGroupSelect');
+
+    function populateGroupSelect(select, options={}){
+      if(!select) return;
+      const includeBlank = options.includeBlank !== false;
+      const blankLabel = options.blankLabel || 'No Group';
+      const preferred = normalizeGroupValue(options.preferred);
+      const fallback = normalizeGroupValue(options.fallback);
+      select.innerHTML='';
+      if(includeBlank){
+        const opt=document.createElement('option');
+        opt.value='';
+        opt.textContent=blankLabel;
+        select.appendChild(opt);
+      }
+      ensureItemGroups().forEach(name=>{
+        const opt=document.createElement('option');
+        opt.value=name;
+        opt.textContent=name;
+        select.appendChild(opt);
+      });
+      if(preferred && state.itemGroups.includes(preferred)){
+        select.value=preferred;
+      } else if(fallback && state.itemGroups.includes(fallback)){
+        select.value=fallback;
+      } else if(!includeBlank && state.itemGroups.length){
+        select.value=state.itemGroups[0];
+      } else {
+        select.value='';
+      }
+    }
+
+    function renderGroupSelectors(){
+      ensureItemGroups();
+      const last = getLastGroup();
+      if(newItemGroupSelect){
+        const current = normalizeGroupValue(newItemGroupSelect.value) || last;
+        populateGroupSelect(newItemGroupSelect, { includeBlank:true, preferred:current, fallback:last, blankLabel:'No Group' });
+      }
+      if(taskGroupSelect){
+        const current = normalizeGroupValue(taskGroupSelect.value) || last;
+        populateGroupSelect(taskGroupSelect, { includeBlank:true, preferred:current, fallback:last, blankLabel:'No Group' });
+      }
+      if(modalGroupSelect){
+        const current = normalizeGroupValue(modalGroupSelect.dataset.selected || modalGroupSelect.value || '');
+        populateGroupSelect(modalGroupSelect, { includeBlank:true, preferred:current, fallback:'', blankLabel:'No Group' });
+      }
+    }
+
+    function renderGroupManager(){
+      if(!groupPaletteEl) return;
+      groupPaletteEl.innerHTML='';
+      const last = getLastGroup();
+      ensureItemGroups().forEach(name => {
+        const chip=document.createElement('button');
+        chip.type='button';
+        chip.className='chip-tag group-chip';
+        if(last === name) chip.classList.add('selected');
+        chip.textContent = name;
+        const remove=document.createElement('span');
+        remove.className='remove';
+        remove.textContent='×';
+        remove.setAttribute('aria-hidden','true');
+        remove.title='Remove';
+        remove.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          if(!confirm(`Remove group "${name}"? Items will move to Ungrouped.`)) return;
+          if(removeItemGroup(name)){
+            markDirty();
+            renderGroupSelectors();
+            renderGroupManager();
+            refreshTaskViews();
+          }
+        });
+        chip.addEventListener('click', (e)=>{
+          if(e.target === remove) return;
+          setLastGroup(name);
+          markDirty();
+          renderGroupSelectors();
+          renderGroupManager();
+        });
+        chip.appendChild(remove);
+        groupPaletteEl.appendChild(chip);
+      });
+    }
+
+    if(btnAddGroup){
+      btnAddGroup.addEventListener('click', ()=>{
+        const name = (newGroupInput?.value || '').trim();
+        if(!name) return;
+        const added = addItemGroup(name);
+        const normalized = normalizeGroupValue(name);
+        if(normalized){
+          setLastGroup(normalized);
+        }
+        newGroupInput.value='';
+        if(added || normalized){
+          markDirty();
+        }
+        if(added){
+          refreshTaskViews();
+        } else {
+          renderGroupSelectors();
+          renderGroupManager();
+        }
+      });
+    }
+
+    if(newGroupInput){
+      newGroupInput.addEventListener('keypress', (e)=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          btnAddGroup?.click();
+        }
+      });
+    }
+
+    if(btnQuickAddGroup){
+      btnQuickAddGroup.addEventListener('click', ()=>{
+        const name = prompt('New group name');
+        if(!name) return;
+        const added = addItemGroup(name);
+        const normalized = normalizeGroupValue(name);
+        if(normalized){
+          setLastGroup(normalized);
+        }
+        if(added || normalized){
+          markDirty();
+        }
+        if(added){
+          refreshTaskViews();
+        } else {
+          renderGroupSelectors();
+          renderGroupManager();
+        }
+      });
+    }
+
+    if(taskGroupSelect){
+      taskGroupSelect.addEventListener('change', ()=>{
+        const value = normalizeGroupValue(taskGroupSelect.value);
+        if(value){
+          if(!state.itemGroups.includes(value)){
+            state.itemGroups.push(value);
+            state.itemGroups.sort((a,b)=>a.localeCompare(b));
+          }
+          setLastGroup(value);
+        } else {
+          setLastGroup('');
+        }
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+      });
+    }
+
+    if(newItemGroupSelect){
+      newItemGroupSelect.addEventListener('change', ()=>{
+        const value = normalizeGroupValue(newItemGroupSelect.value);
+        if(value && state.itemGroups.includes(value)){
+          setLastGroup(value);
+        } else {
+          setLastGroup('');
+        }
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+      });
     }
 
     // ---------- Tags ----------
@@ -1562,9 +2036,14 @@
       let dueDate = parseDateInput(dueVal);
       if(dueDate == null){ dueDate = getTodayTimestamp(); }
       const details = taskDetailsInput ? taskDetailsInput.value.trim() : '';
+      const groupValue = taskGroupSelect ? normalizeGroupValue(taskGroupSelect.value) : getLastGroup();
+      if(groupValue && !state.itemGroups.includes(groupValue)){
+        state.itemGroups.push(groupValue);
+        state.itemGroups.sort((a,b)=>a.localeCompare(b));
+      }
       const tags=getSelectedTags();
       const checklist = Array.from(checkUl.querySelectorAll('input[type="checkbox"]')).map(cb=>({ t: cb.nextElementSibling.textContent, done: cb.checked }));
-      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null, details };
+      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null, details, group: groupValue };
       state.tasks.unshift(task);
       // reset form
       document.getElementById('taskTitle').value='';
@@ -1573,9 +2052,12 @@
       document.getElementById('checkItem').value='';
       checkUl.innerHTML='';
       tagPaletteEl.querySelectorAll('.chip-tag.selected').forEach(x=>x.classList.remove('selected'));
-      markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate);
+      if(taskGroupSelect){ taskGroupSelect.value = groupValue || ''; }
+      setLastGroup(groupValue);
+      markDirty();
+      refreshTaskViews();
     });
-    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); }});
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; state.manualOrder=[]; markDirty(); renderNotesList(); refreshTaskShellViews(); }});
 
     const titleize=(str)=>{
       return String(str||'')
@@ -1779,6 +2261,9 @@
         top.appendChild(title);
         const meta=document.createElement('div'); meta.className='subtle';
         let metaText = `${t.status} • P${t.priority}`;
+        if(t.group){
+          metaText += ` • ${t.group}`;
+        }
         if(t.dueDate){
           metaText += ' • Due ' + formatDate(t.dueDate);
           if(t.startTime){
@@ -1878,6 +2363,7 @@
           parts.push(priorityLabel);
           if(grouping!=='tab' && t.status){ parts.push(titleize(t.status)||t.status); }
           if(t.tags?.length) parts.push(t.tags.join(', '));
+          if(t.group) parts.push(t.group);
           if(t.dueDate) parts.push('Due '+formatDate(t.dueDate));
           metaEl.textContent = parts.filter(Boolean).join(' • ');
           c.appendChild(titleEl);
@@ -1917,6 +2403,7 @@
         const cols=[
           {k:'title', v:t.title},
           {k:'status', v:t.status},
+          {k:'group', v:t.group || ''},
           {k:'priority', v:'P'+(t.priority||'')},
           {k:'dueDate', v: t.dueDate ? formatDate(t.dueDate) : ''},
           {k:'tags', v:(t.tags||[]).join(', ')},
@@ -1948,6 +2435,15 @@
         task.tags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
       } else if(field === 'status'){
         applyTaskStatus(task, raw || 'backlog');
+      } else if(field === 'group'){
+        const normalized = normalizeGroupValue(raw);
+        const changed = setTaskGroup(task, normalized);
+        if(changed){
+          setLastGroup(normalized);
+          if(!task.fromNotes){
+            moveManualTaskToGroupEnd(task.id, normalized);
+          }
+        }
       } else if(field === 'title'){
         task.title = raw || '(untitled)';
       } else if(field === 'dueDate'){
@@ -1961,6 +2457,8 @@
         task.details = raw;
       }
       markDirty();
+      renderGroupSelectors();
+      renderGroupManager();
       renderKanban();
       renderTasks();
       renderCalendar();
@@ -2097,6 +2595,11 @@
       if(modalDueDate){
         modalDueDate.value = task.dueDate ? formatDate(task.dueDate) : '';
       }
+      if(modalGroupSelect){
+        modalGroupSelect.dataset.selected = normalizeGroupValue(task.group);
+        renderGroupSelectors();
+        modalGroupSelect.value = normalizeGroupValue(task.group) || '';
+      }
       if(modalDetails){
         modalDetails.value = task.details || '';
       }
@@ -2162,6 +2665,7 @@
       if(modalChecklist){ modalChecklist.innerHTML = ''; }
       if(modalCheckInput){ modalCheckInput.value = ''; }
       if(modalTitleInput){ modalTitleInput.value = ''; }
+      if(modalGroupSelect){ modalGroupSelect.dataset.selected = ''; }
     }
     modalSaveBtn.addEventListener('click', () => {
       if(!currentModalTask){ closeTaskModal(); return; }
@@ -2192,6 +2696,16 @@
           .filter(item => item.t);
         currentModalTask.checklist = cleaned;
       }
+      if(modalGroupSelect){
+        const selectedGroup = normalizeGroupValue(modalGroupSelect.value || '');
+        const changedGroup = setTaskGroup(currentModalTask, selectedGroup);
+        if(changedGroup){
+          setLastGroup(selectedGroup);
+          if(!currentModalTask.fromNotes){
+            moveManualTaskToGroupEnd(currentModalTask.id, selectedGroup);
+          }
+        }
+      }
       const newName = (modalNewTagInput.value || '').trim();
       if(newName){
         if(!state.tags.includes(newName)){
@@ -2204,9 +2718,8 @@
       modalNewTagInput.value = '';
       markDirty();
       renderTagPalette();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
       renderNotesList();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
       closeTaskModal();
     });
     modalCancelBtn.addEventListener('click', () => {
@@ -2525,8 +3038,7 @@
       function refreshAfterStateChange(){
         markDirty();
         renderNotesList();
-        renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-        renderDay(dateStr);
+        refreshTaskShellViews();
       }
       function beginInlineEdit(taskId, host){
         if(!host || host.dataset.inlineEditing === '1') return;
@@ -3047,7 +3559,7 @@
     document.addEventListener('readystatechange', ()=>{ if(document.readyState==='complete'){ applySharePointCanvasOffsets(); setTimeout(applySharePointCanvasOffsets, 150); setTimeout(applySharePointCanvasOffsets, 400); } });
 
     // ---------- Init ----------
-    function renderAll(){ syncNotesToTasks(); renderNotes(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }
+    function renderAll(){ syncNotesToTasks(); renderNotes(); renderTagPalette(); refreshTaskShellViews(); }
     load(); initTheme(); buildSwatches(); renderAll(); setSaved(true); showView('notes');
   })();
   </script>
