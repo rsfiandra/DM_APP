@@ -178,6 +178,8 @@
     .group-action:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
     .group-action.group-color{width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.15);border-radius:50%;}
     .group-action.group-color.has-color{border-color:transparent;}
+    .group-action.group-color-clear{width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.15);border-radius:6px;font-size:14px;line-height:1;background:#fff;color:var(--muted);}
+    .group-action.group-color-clear:hover{background:rgba(15,23,42,.08);}
     .group-action.group-collapse{min-width:22px;font-size:12px;line-height:1;}
     .note-group-title.draggable{cursor:grab;user-select:none;}
     .note-group-title.draggable:active{cursor:grabbing;}
@@ -1507,6 +1509,22 @@
           }
         });
         colorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        const clearColorBtn = document.createElement('button');
+        clearColorBtn.type = 'button';
+        clearColorBtn.className = 'group-action group-color-clear';
+        clearColorBtn.textContent = '×';
+        clearColorBtn.title = 'Clear colour';
+        clearColorBtn.setAttribute('aria-label', `Clear colour for ${displayName}`);
+        clearColorBtn.hidden = true;
+        clearColorBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(setGroupColor(metaKey, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        clearColorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
         const collapseBtn = document.createElement('button');
         collapseBtn.type = 'button';
         collapseBtn.className = 'group-action group-collapse';
@@ -1530,6 +1548,7 @@
           }
         });
         actions.appendChild(colorBtn);
+        actions.appendChild(clearColorBtn);
         actions.appendChild(collapseBtn);
         title.appendChild(label);
         title.appendChild(actions);
@@ -1541,6 +1560,8 @@
           const prefs = getGroupPrefs(metaKey);
           const color = prefs.color;
           const collapsed = !!prefs.collapsed;
+          clearColorBtn.title = `Clear colour for ${displayName}`;
+          clearColorBtn.setAttribute('aria-label', `Clear colour for ${displayName}`);
           if(color){
             const textColor = getReadableTextColor(color);
             title.style.setProperty('--group-title-bg', color);
@@ -1554,6 +1575,7 @@
             colorBtn.style.background = color;
             colorBtn.style.borderColor = 'transparent';
             colorBtn.style.color = textColor;
+            clearColorBtn.hidden = false;
             if(textColor === '#ffffff'){
               collapseBtn.style.background = 'rgba(255,255,255,.25)';
               collapseBtn.style.color = '#ffffff';
@@ -1573,11 +1595,12 @@
             colorBtn.style.background = '';
             colorBtn.style.borderColor = '';
             colorBtn.style.color = '';
+            clearColorBtn.hidden = true;
             collapseBtn.style.background = '';
             collapseBtn.style.color = '';
           }
-          colorBtn.title = color ? `Change colour (${color})` : 'Set colour';
-          colorBtn.setAttribute('aria-label', color ? `Change colour for ${displayName}` : `Set colour for ${displayName}`);
+          colorBtn.title = color ? `Change colour (${color}). Use × to clear.` : 'Set colour';
+          colorBtn.setAttribute('aria-label', color ? `Change colour for ${displayName}. Use clear to remove.` : `Set colour for ${displayName}`);
           const collapsedLabel = collapsed ? `Expand ${displayName}` : `Collapse ${displayName}`;
           collapseBtn.textContent = collapsed ? '▸' : '▾';
           collapseBtn.title = collapsedLabel;
@@ -2299,13 +2322,21 @@
           colorDot.style.background=color;
           colorDot.style.borderColor='transparent';
         }
-        colorDot.title = color ? `Change colour (${color})` : 'Set colour';
+        colorDot.title = color ? `Change colour (${color}). Right-click or double-click to clear.` : 'Set colour';
         colorDot.addEventListener('click', (e)=>{
           e.stopPropagation();
           openGroupColorPicker(name);
         });
         colorDot.addEventListener('contextmenu', (e)=>{
           e.preventDefault();
+          e.stopPropagation();
+          if(setGroupColor(name, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorDot.addEventListener('dblclick', (e)=>{
           e.stopPropagation();
           if(setGroupColor(name, '')){
             markDirty();
