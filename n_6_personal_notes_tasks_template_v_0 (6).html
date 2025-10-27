@@ -156,13 +156,29 @@
     .note-group-title{
       font-size:13px;
       font-weight:600;
-      color:var(--ink);
+      color:var(--group-title-text,var(--ink));
       margin:12px 0 6px;
       position:relative;
       display:flex;
       align-items:center;
-      gap:6px;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:var(--group-title-bg,var(--head-tint));
+      border:1px solid var(--group-border-color,var(--head-tint-border));
+      transition:background .2s,color .2s,border-color .2s;
     }
+    .note-group-title.collapsed{opacity:.75;}
+    .note-group-title.task-drop{box-shadow:0 0 0 2px var(--brand1);}
+    .group-label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
+    .group-label .group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .group-actions{display:flex;align-items:center;gap:4px;}
+    .group-action{border:none;border-radius:6px;padding:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.6);color:inherit;transition:background .2s,opacity .2s;}
+    .group-action:hover{background:rgba(255,255,255,.85);}
+    .group-action:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
+    .group-action.group-color{width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.15);border-radius:50%;}
+    .group-action.group-color.has-color{border-color:transparent;}
+    .group-action.group-collapse{min-width:22px;font-size:12px;line-height:1;}
     .note-group-title.draggable{cursor:grab;user-select:none;}
     .note-group-title.draggable:active{cursor:grabbing;}
     .note-group-title.dragging{opacity:.7;}
@@ -170,10 +186,10 @@
     .note-group-title.drag-over-before::before{top:-6px;}
     .note-group-title.drag-over-after::after{bottom:-6px;}
     .note-group-container{
-      border:1px solid var(--line);
+      border:1px solid var(--group-border-color,var(--line));
       border-radius:10px;
       padding:4px 8px;
-      background:#fff;
+      background:var(--group-fill-color,#fff);
       margin-bottom:8px;
       transition:background .2s,border-color .2s;
     }
@@ -181,6 +197,7 @@
       border-color:var(--head-tint-border);
       background:var(--head-tint);
     }
+    .note-group-container.collapsed{display:none;}
     .note-group-container.empty{
       display:flex;
       align-items:center;
@@ -237,9 +254,10 @@
     .tag-chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
     .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
-    .chip-tag.group-chip{position:relative;padding-right:26px;cursor:grab;user-select:none;}
+    .chip-tag.group-chip{position:relative;padding-right:26px;cursor:grab;user-select:none;display:inline-flex;align-items:center;gap:6px;}
     .chip-tag.group-chip:active{cursor:grabbing;}
     .chip-tag.group-chip.dragging{opacity:.65;}
+    .chip-tag.group-chip.is-collapsed:not(.dragging){opacity:.7;}
     .chip-tag.group-chip.drag-over-before,.chip-tag.group-chip.drag-over-after{border-color:var(--brand1);box-shadow:0 0 0 2px var(--head-tint-border);}
     .chip-tag.group-chip.drag-over-before::before,.chip-tag.group-chip.drag-over-after::after{content:'';position:absolute;left:8px;right:8px;height:2px;background:var(--brand1);border-radius:999px;opacity:.9;}
     .chip-tag.group-chip.drag-over-before::before{top:-4px;}
@@ -247,6 +265,8 @@
     .chip-tag.group-chip .remove{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.7;cursor:pointer;}
     #groupPalette.drag-over-end{outline:2px dashed var(--brand1);outline-offset:6px;border-radius:16px;padding-bottom:8px;}
     .chip-tag.group-chip .remove:hover{opacity:1;}
+    .chip-tag.group-chip .color-dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(15,23,42,.25);background:var(--head-tint);flex-shrink:0;cursor:pointer;}
+    .chip-tag.group-chip .chip-label{font-weight:600;}
     .task-list{display:grid;gap:10px}
     .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
     .task-title{
@@ -839,6 +859,7 @@
       tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
       manualOrder:[],
       itemGroups:['General'],
+      groupMeta:{},
       settings:{theme:'regal',kanbanGrouping:'tab',lastGroup:''}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
@@ -886,6 +907,143 @@
       const normalized = sanitizeGroupName(name);
       return normalized;
     }
+    function sanitizeHexColor(value){
+      if(typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if(!trimmed) return '';
+      const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+      if(!match) return '';
+      let hex = match[1].toLowerCase();
+      if(hex.length === 3){
+        hex = hex.split('').map(ch => ch + ch).join('');
+      }
+      return `#${hex}`;
+    }
+    function sanitizeGroupMetaEntry(entry){
+      if(!entry || typeof entry !== 'object') return { color:'', collapsed:false };
+      const color = sanitizeHexColor(entry.color);
+      return { color: color || '', collapsed: !!entry.collapsed };
+    }
+    function ensureGroupMeta(){
+      if(!state || typeof state !== 'object') return {};
+      if(!state.groupMeta || typeof state.groupMeta !== 'object') state.groupMeta = {};
+      const normalizedEntries = {};
+      Object.keys(state.groupMeta).forEach(key => {
+        const normalizedKey = normalizeGroupValue(key);
+        const sanitized = sanitizeGroupMetaEntry(state.groupMeta[key]);
+        if(!normalizedEntries.hasOwnProperty(normalizedKey)){
+          normalizedEntries[normalizedKey] = sanitized;
+        } else {
+          if(!normalizedEntries[normalizedKey].color && sanitized.color){
+            normalizedEntries[normalizedKey].color = sanitized.color;
+          }
+          if(sanitized.collapsed){
+            normalizedEntries[normalizedKey].collapsed = true;
+          }
+        }
+      });
+      if(!normalizedEntries['']){
+        normalizedEntries[''] = { color:'', collapsed:false };
+      }
+      const groups = Array.isArray(state.itemGroups) ? state.itemGroups.map(normalizeGroupValue) : [];
+      groups.forEach(name => {
+        if(!normalizedEntries.hasOwnProperty(name)){
+          normalizedEntries[name] = { color:'', collapsed:false };
+        } else {
+          normalizedEntries[name] = sanitizeGroupMetaEntry(normalizedEntries[name]);
+        }
+      });
+      Object.keys(normalizedEntries).forEach(key => {
+        const entry = normalizedEntries[key];
+        entry.color = sanitizeHexColor(entry.color) || '';
+        entry.collapsed = !!entry.collapsed;
+      });
+      state.groupMeta = normalizedEntries;
+      return state.groupMeta;
+    }
+    function ensureGroupPrefsEntry(name){
+      ensureGroupMeta();
+      const key = normalizeGroupValue(name);
+      if(!state.groupMeta.hasOwnProperty(key)){
+        state.groupMeta[key] = { color:'', collapsed:false };
+      } else {
+        state.groupMeta[key] = sanitizeGroupMetaEntry(state.groupMeta[key]);
+      }
+      return state.groupMeta[key];
+    }
+    function getGroupPrefs(name){
+      ensureGroupMeta();
+      const key = normalizeGroupValue(name);
+      if(!state.groupMeta.hasOwnProperty(key)){
+        return { color:'', collapsed:false };
+      }
+      return sanitizeGroupMetaEntry(state.groupMeta[key]);
+    }
+    function getGroupColor(name){
+      return getGroupPrefs(name).color;
+    }
+    function isGroupCollapsed(name){
+      return getGroupPrefs(name).collapsed;
+    }
+    function setGroupColor(name, color){
+      const entry = ensureGroupPrefsEntry(name);
+      const sanitized = sanitizeHexColor(color);
+      if(entry.color === sanitized) return false;
+      entry.color = sanitized || '';
+      return true;
+    }
+    function setGroupCollapsed(name, collapsed){
+      const entry = ensureGroupPrefsEntry(name);
+      const next = !!collapsed;
+      if(entry.collapsed === next) return false;
+      entry.collapsed = next;
+      return true;
+    }
+    function getDefaultGroupColor(){
+      const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand1');
+      return sanitizeHexColor(brand) || '#ff8a00';
+    }
+    let groupColorPicker = null;
+    let pendingGroupColorTarget = '';
+    function ensureGroupColorPicker(){
+      if(groupColorPicker) return groupColorPicker;
+      groupColorPicker = document.createElement('input');
+      groupColorPicker.type = 'color';
+      groupColorPicker.id = 'groupColorPicker';
+      groupColorPicker.style.position = 'fixed';
+      groupColorPicker.style.left = '-9999px';
+      document.body.appendChild(groupColorPicker);
+      groupColorPicker.addEventListener('input', () => {
+        if(!pendingGroupColorTarget) return;
+        const changed = setGroupColor(pendingGroupColorTarget, groupColorPicker.value);
+        if(changed){
+          markDirty();
+          renderGroupManager();
+          renderNotesList();
+        }
+      });
+      groupColorPicker.addEventListener('change', () => {
+        pendingGroupColorTarget = '';
+      });
+      return groupColorPicker;
+    }
+    function openGroupColorPicker(name){
+      const picker = ensureGroupColorPicker();
+      const key = normalizeGroupValue(name);
+      pendingGroupColorTarget = key;
+      const current = getGroupColor(key);
+      picker.value = current || getDefaultGroupColor();
+      picker.click();
+    }
+    function hexToRgba(hex, alpha){
+      const rgb = hexToRgb(hex);
+      return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+    }
+    function getReadableTextColor(hex){
+      const rgb = hexToRgb(hex);
+      const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+      return luminance > 0.6 ? '#0f172a' : '#ffffff';
+    }
     function ensureItemGroups(){
       if(!Array.isArray(state.itemGroups)) state.itemGroups = [];
       const seen = new Set();
@@ -902,6 +1060,7 @@
         cleaned.push('General');
       }
       state.itemGroups = cleaned;
+      ensureGroupMeta();
       return state.itemGroups;
     }
     function addItemGroup(name){
@@ -910,6 +1069,7 @@
       ensureItemGroups();
       if(state.itemGroups.includes(normalized)) return false;
       state.itemGroups.push(normalized);
+      ensureGroupPrefsEntry(normalized);
       return true;
     }
     function removeItemGroup(name){
@@ -918,6 +1078,9 @@
       const idx = state.itemGroups.indexOf(normalized);
       if(idx < 0) return false;
       state.itemGroups.splice(idx,1);
+      if(state.groupMeta && Object.prototype.hasOwnProperty.call(state.groupMeta, normalized)){
+        delete state.groupMeta[normalized];
+      }
       state.tasks.forEach(task => {
         if(normalizeGroupValue(task.group) === normalized){
           task.group = '';
@@ -949,6 +1112,7 @@
       task.group = normalized;
       if(normalized && !state.itemGroups.includes(normalized)){
         state.itemGroups.push(normalized);
+        ensureGroupPrefsEntry(normalized);
       }
       if(!normalized && current && state.settings && normalizeGroupValue(state.settings.lastGroup) === current){
         state.settings.lastGroup = '';
@@ -1295,10 +1459,11 @@
         ensureMainHeader();
         const normalizedKey = key || '__ungrouped';
         if(groupContainers.has(normalizedKey)) return groupContainers.get(normalizedKey);
+        const metaKey = normalizedKey === '__ungrouped' ? '' : normalizedKey;
+        const displayName = normalizedKey === '__ungrouped' ? 'Ungrouped' : normalizedKey;
         const title = document.createElement('div');
         title.className = 'note-group-title';
         title.dataset.group = normalizedKey;
-        title.textContent = normalizedKey === '__ungrouped' ? 'Ungrouped' : normalizedKey;
         if(normalizedKey !== '__ungrouped'){
           title.classList.add('draggable');
           title.draggable = true;
@@ -1314,35 +1479,117 @@
           title.addEventListener('dragend', () => {
             clearGroupDragState();
           });
-          title.addEventListener('dragover', (e) => {
-            if(!dragGroupName || dragGroupName === normalizedKey) return;
-            e.preventDefault();
-            const rect = title.getBoundingClientRect();
-            const after = e.clientY > rect.top + rect.height / 2;
-            title.classList.toggle('drag-over-after', after);
-            title.classList.toggle('drag-over-before', !after);
-          });
-          title.addEventListener('dragleave', () => {
-            title.classList.remove('drag-over-before','drag-over-after');
-          });
-          title.addEventListener('drop', (e) => {
-            if(!dragGroupName) return;
-            e.preventDefault();
-            e.stopPropagation();
-            const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
-            const rect = title.getBoundingClientRect();
-            const after = e.clientY > rect.top + rect.height / 2;
-            const changed = reorderItemGroups(from, normalizedKey, after);
-            clearGroupDragState();
-            if(changed){
-              commitGroupReorder();
-            }
-          });
+        } else {
+          title.title = displayName;
         }
+        const label = document.createElement('div');
+        label.className = 'group-label';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'group-name';
+        nameSpan.textContent = displayName;
+        label.appendChild(nameSpan);
+        const actions = document.createElement('div');
+        actions.className = 'group-actions';
+        const colorBtn = document.createElement('button');
+        colorBtn.type = 'button';
+        colorBtn.className = 'group-action group-color';
+        colorBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openGroupColorPicker(metaKey);
+        });
+        colorBtn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if(setGroupColor(metaKey, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        const collapseBtn = document.createElement('button');
+        collapseBtn.type = 'button';
+        collapseBtn.className = 'group-action group-collapse';
+        collapseBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = !isGroupCollapsed(metaKey);
+          if(setGroupCollapsed(metaKey, next)){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        collapseBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        label.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const next = !isGroupCollapsed(metaKey);
+          if(setGroupCollapsed(metaKey, next)){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        actions.appendChild(colorBtn);
+        actions.appendChild(collapseBtn);
+        title.appendChild(label);
+        title.appendChild(actions);
         const container = document.createElement('div');
         container.className = 'note-group-container';
         container.dataset.group = normalizedKey;
         ensureGroupPlaceholder(container);
+        const updateVisualState = () => {
+          const prefs = getGroupPrefs(metaKey);
+          const color = prefs.color;
+          const collapsed = !!prefs.collapsed;
+          if(color){
+            const textColor = getReadableTextColor(color);
+            title.style.setProperty('--group-title-bg', color);
+            title.style.setProperty('--group-title-text', textColor);
+            title.style.setProperty('--group-border-color', color);
+            container.style.setProperty('--group-border-color', color);
+            container.style.setProperty('--group-fill-color', hexToRgba(color, 0.12));
+            title.classList.add('has-color');
+            container.classList.add('has-color');
+            colorBtn.classList.add('has-color');
+            colorBtn.style.background = color;
+            colorBtn.style.borderColor = 'transparent';
+            colorBtn.style.color = textColor;
+            if(textColor === '#ffffff'){
+              collapseBtn.style.background = 'rgba(255,255,255,.25)';
+              collapseBtn.style.color = '#ffffff';
+            } else {
+              collapseBtn.style.background = '';
+              collapseBtn.style.color = '';
+            }
+          } else {
+            title.style.removeProperty('--group-title-bg');
+            title.style.removeProperty('--group-title-text');
+            title.style.removeProperty('--group-border-color');
+            container.style.removeProperty('--group-border-color');
+            container.style.removeProperty('--group-fill-color');
+            title.classList.remove('has-color');
+            container.classList.remove('has-color');
+            colorBtn.classList.remove('has-color');
+            colorBtn.style.background = '';
+            colorBtn.style.borderColor = '';
+            colorBtn.style.color = '';
+            collapseBtn.style.background = '';
+            collapseBtn.style.color = '';
+          }
+          colorBtn.title = color ? `Change colour (${color})` : 'Set colour';
+          colorBtn.setAttribute('aria-label', color ? `Change colour for ${displayName}` : `Set colour for ${displayName}`);
+          const collapsedLabel = collapsed ? `Expand ${displayName}` : `Collapse ${displayName}`;
+          collapseBtn.textContent = collapsed ? '▸' : '▾';
+          collapseBtn.title = collapsedLabel;
+          collapseBtn.setAttribute('aria-label', collapsedLabel);
+          title.classList.toggle('collapsed', collapsed);
+          container.classList.toggle('collapsed', collapsed);
+          container.style.display = collapsed ? 'none' : '';
+        };
+        updateVisualState();
+        const clearTaskHighlights = () => {
+          document.querySelectorAll('.note-group-title').forEach(el => el.classList.remove('task-drop','drag-over-before','drag-over-after'));
+        };
         container.addEventListener('dragover', (e) => {
           if(!dragManualTaskId) return;
           e.preventDefault();
@@ -1356,18 +1603,50 @@
           container.classList.remove('drag-over');
           const id = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
           dragManualTaskId = null;
+          clearTaskHighlights();
           if(!id) return;
-          const task = state.tasks.find(x => x && x.id === id && !x.fromNotes);
-          if(!task) return;
-          const targetGroup = normalizedKey === '__ungrouped' ? '' : normalizedKey;
-          const groupChanged = setTaskGroup(task, targetGroup);
-          const orderChanged = moveManualTaskToGroupEnd(id, targetGroup);
-          if(groupChanged || orderChanged){
-            markDirty();
-            renderGroupSelectors();
-            renderGroupManager();
-            renderNotesList();
-            refreshTaskShellViews();
+          applyManualTaskDrop(id, metaKey);
+        });
+        title.addEventListener('dragover', (e) => {
+          if(dragManualTaskId){
+            e.preventDefault();
+            title.classList.add('task-drop');
+            title.classList.remove('drag-over-before','drag-over-after');
+            return;
+          }
+          if(normalizedKey === '__ungrouped') return;
+          if(!dragGroupName || dragGroupName === normalizedKey) return;
+          e.preventDefault();
+          const rect = title.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          title.classList.toggle('drag-over-after', after);
+          title.classList.toggle('drag-over-before', !after);
+        });
+        title.addEventListener('dragleave', () => {
+          title.classList.remove('task-drop','drag-over-before','drag-over-after');
+        });
+        title.addEventListener('drop', (e) => {
+          if(dragManualTaskId){
+            e.preventDefault();
+            e.stopPropagation();
+            const id = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+            dragManualTaskId = null;
+            title.classList.remove('task-drop');
+            clearTaskHighlights();
+            if(id) applyManualTaskDrop(id, metaKey);
+            return;
+          }
+          if(normalizedKey === '__ungrouped') return;
+          if(!dragGroupName) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const rect = title.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          const changed = reorderItemGroups(from, normalizedKey, after);
+          clearGroupDragState();
+          if(changed){
+            commitGroupReorder();
           }
         });
         notesPreview.appendChild(title);
@@ -1413,6 +1692,7 @@
         wrapper.addEventListener('dragend', () => {
           dragManualTaskId = null;
           wrapper.classList.remove('drag-over');
+          document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('task-drop','drag-over-before','drag-over-after'));
         });
         wrapper.addEventListener('dragover', (e) => {
           if(!dragManualTaskId) return;
@@ -1429,6 +1709,7 @@
           const toId = task.id;
           wrapper.classList.remove('drag-over');
           dragManualTaskId = null;
+          document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('task-drop','drag-over-before','drag-over-after'));
           if(!fromId || !toId) return;
           const rect = wrapper.getBoundingClientRect();
           const insertAfter = e.clientY > rect.top + rect.height / 2;
@@ -1880,6 +2161,24 @@
       return true;
     }
 
+    function applyManualTaskDrop(taskId, groupName){
+      if(!taskId) return false;
+      const task = state.tasks.find(x => x && x.id === taskId && !x.fromNotes);
+      if(!task) return false;
+      const normalizedGroup = normalizeGroupValue(groupName);
+      const groupChanged = setTaskGroup(task, normalizedGroup);
+      const orderChanged = moveManualTaskToGroupEnd(taskId, normalizedGroup);
+      if(groupChanged || orderChanged){
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+        renderNotesList();
+        refreshTaskShellViews();
+        return true;
+      }
+      return false;
+    }
+
     function deleteTask(task){
       if(!task) return;
       if(task.fromNotes){
@@ -1984,10 +2283,42 @@
         chip.type='button';
         chip.className='chip-tag group-chip';
         if(last === name) chip.classList.add('selected');
+        const prefs = getGroupPrefs(name);
+        const color = prefs.color;
+        const collapsed = prefs.collapsed;
+        if(collapsed) chip.classList.add('is-collapsed');
         chip.dataset.group = name;
+        chip.dataset.color = color || '';
+        chip.dataset.collapsed = collapsed ? 'true' : 'false';
         chip.draggable = true;
-        chip.textContent = name;
-        chip.title = 'Drag to reorder groups';
+        chip.title = collapsed ? 'Drag to reorder groups (collapsed)' : 'Drag to reorder groups';
+        chip.textContent='';
+        const colorDot=document.createElement('span');
+        colorDot.className='color-dot';
+        if(color){
+          colorDot.style.background=color;
+          colorDot.style.borderColor='transparent';
+        }
+        colorDot.title = color ? `Change colour (${color})` : 'Set colour';
+        colorDot.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          openGroupColorPicker(name);
+        });
+        colorDot.addEventListener('contextmenu', (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          if(setGroupColor(name, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorDot.addEventListener('mousedown', (e)=> e.stopPropagation());
+        const label=document.createElement('span');
+        label.className='chip-label';
+        label.textContent=name;
+        chip.appendChild(colorDot);
+        chip.appendChild(label);
         const remove=document.createElement('span');
         remove.className='remove';
         remove.textContent='×';
@@ -2053,7 +2384,7 @@
     function clearGroupDragState(){
       dragGroupName = null;
       document.querySelectorAll('.chip-tag.group-chip').forEach(chip => chip.classList.remove('dragging','drag-over-before','drag-over-after'));
-      document.querySelectorAll('.note-group-title.draggable').forEach(title => title.classList.remove('dragging','drag-over-before','drag-over-after'));
+      document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('dragging','drag-over-before','drag-over-after','task-drop'));
       if(groupPaletteEl){
         groupPaletteEl.classList.remove('drag-over-end');
       }
