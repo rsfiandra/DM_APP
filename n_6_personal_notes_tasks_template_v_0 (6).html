@@ -158,7 +158,17 @@
       font-weight:600;
       color:var(--ink);
       margin:12px 0 6px;
+      position:relative;
+      display:flex;
+      align-items:center;
+      gap:6px;
     }
+    .note-group-title.draggable{cursor:grab;user-select:none;}
+    .note-group-title.draggable:active{cursor:grabbing;}
+    .note-group-title.dragging{opacity:.7;}
+    .note-group-title.drag-over-before::before,.note-group-title.drag-over-after::after{content:'';position:absolute;left:0;right:0;height:2px;background:var(--brand1);border-radius:999px;opacity:.9;}
+    .note-group-title.drag-over-before::before{top:-6px;}
+    .note-group-title.drag-over-after::after{bottom:-6px;}
     .note-group-container{
       border:1px solid var(--line);
       border-radius:10px;
@@ -227,8 +237,15 @@
     .tag-chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
     .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
-    .chip-tag.group-chip{position:relative;padding-right:26px;}
+    .chip-tag.group-chip{position:relative;padding-right:26px;cursor:grab;user-select:none;}
+    .chip-tag.group-chip:active{cursor:grabbing;}
+    .chip-tag.group-chip.dragging{opacity:.65;}
+    .chip-tag.group-chip.drag-over-before,.chip-tag.group-chip.drag-over-after{border-color:var(--brand1);box-shadow:0 0 0 2px var(--head-tint-border);}
+    .chip-tag.group-chip.drag-over-before::before,.chip-tag.group-chip.drag-over-after::after{content:'';position:absolute;left:8px;right:8px;height:2px;background:var(--brand1);border-radius:999px;opacity:.9;}
+    .chip-tag.group-chip.drag-over-before::before{top:-4px;}
+    .chip-tag.group-chip.drag-over-after::after{bottom:-4px;}
     .chip-tag.group-chip .remove{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.7;cursor:pointer;}
+    #groupPalette.drag-over-end{outline:2px dashed var(--brand1);outline-offset:6px;border-radius:16px;padding-bottom:8px;}
     .chip-tag.group-chip .remove:hover{opacity:1;}
     .task-list{display:grid;gap:10px}
     .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
@@ -815,6 +832,7 @@
     // Track the index of the note item currently being dragged for reordering
     let dragNoteIndex = null;
     let dragManualTaskId = null;
+    let dragGroupName = null;
     const defaultState = ()=>({
       notes:'',
       tags:['Work','Home','Urgent'],
@@ -892,7 +910,6 @@
       ensureItemGroups();
       if(state.itemGroups.includes(normalized)) return false;
       state.itemGroups.push(normalized);
-      state.itemGroups.sort((a,b)=>a.localeCompare(b));
       return true;
     }
     function removeItemGroup(name){
@@ -932,12 +949,45 @@
       task.group = normalized;
       if(normalized && !state.itemGroups.includes(normalized)){
         state.itemGroups.push(normalized);
-        state.itemGroups.sort((a,b)=>a.localeCompare(b));
       }
       if(!normalized && current && state.settings && normalizeGroupValue(state.settings.lastGroup) === current){
         state.settings.lastGroup = '';
       }
       return true;
+    }
+
+    function moveItemGroupToIndex(name, targetIndex){
+      const normalized = normalizeGroupValue(name);
+      if(!normalized) return false;
+      const groups = ensureItemGroups();
+      const fromIdx = groups.indexOf(normalized);
+      if(fromIdx < 0) return false;
+      const [item] = groups.splice(fromIdx, 1);
+      let dest = Number.isFinite(targetIndex) ? Math.round(targetIndex) : groups.length;
+      if(dest < 0) dest = 0;
+      if(dest > groups.length) dest = groups.length;
+      groups.splice(dest, 0, item);
+      return dest !== fromIdx;
+    }
+
+    function reorderItemGroups(sourceName, targetName, insertAfter){
+      const source = normalizeGroupValue(sourceName);
+      const target = normalizeGroupValue(targetName);
+      if(!source || !target || source === target) return false;
+      if(source === '__ungrouped' || target === '__ungrouped') return false;
+      ensureItemGroups();
+      const groups = state.itemGroups;
+      const fromIdx = groups.indexOf(source);
+      const toIdx = groups.indexOf(target);
+      if(fromIdx < 0 || toIdx < 0) return false;
+      let insertIdx = insertAfter ? toIdx + 1 : toIdx;
+      if(fromIdx < insertIdx) insertIdx -= 1;
+      return moveItemGroupToIndex(source, insertIdx);
+    }
+
+    function commitGroupReorder(){
+      markDirty();
+      refreshTaskViews();
     }
 
     function refreshTaskShellViews(){
@@ -1247,7 +1297,48 @@
         if(groupContainers.has(normalizedKey)) return groupContainers.get(normalizedKey);
         const title = document.createElement('div');
         title.className = 'note-group-title';
+        title.dataset.group = normalizedKey;
         title.textContent = normalizedKey === '__ungrouped' ? 'Ungrouped' : normalizedKey;
+        if(normalizedKey !== '__ungrouped'){
+          title.classList.add('draggable');
+          title.draggable = true;
+          title.title = 'Drag to reorder groups';
+          title.addEventListener('dragstart', (e) => {
+            dragGroupName = normalizedKey;
+            title.classList.add('dragging');
+            if(e.dataTransfer){
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', normalizedKey);
+            }
+          });
+          title.addEventListener('dragend', () => {
+            clearGroupDragState();
+          });
+          title.addEventListener('dragover', (e) => {
+            if(!dragGroupName || dragGroupName === normalizedKey) return;
+            e.preventDefault();
+            const rect = title.getBoundingClientRect();
+            const after = e.clientY > rect.top + rect.height / 2;
+            title.classList.toggle('drag-over-after', after);
+            title.classList.toggle('drag-over-before', !after);
+          });
+          title.addEventListener('dragleave', () => {
+            title.classList.remove('drag-over-before','drag-over-after');
+          });
+          title.addEventListener('drop', (e) => {
+            if(!dragGroupName) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+            const rect = title.getBoundingClientRect();
+            const after = e.clientY > rect.top + rect.height / 2;
+            const changed = reorderItemGroups(from, normalizedKey, after);
+            clearGroupDragState();
+            if(changed){
+              commitGroupReorder();
+            }
+          });
+        }
         const container = document.createElement('div');
         container.className = 'note-group-container';
         container.dataset.group = normalizedKey;
@@ -1543,7 +1634,6 @@
       const groupName = normalizeGroupValue(overrides.group != null ? overrides.group : getLastGroup());
       if(groupName && !state.itemGroups.includes(groupName)){
         state.itemGroups.push(groupName);
-        state.itemGroups.sort((a,b)=>a.localeCompare(b));
       }
       const task = {
         id: now.toString(36) + Math.random().toString(36).slice(2),
@@ -1894,7 +1984,10 @@
         chip.type='button';
         chip.className='chip-tag group-chip';
         if(last === name) chip.classList.add('selected');
+        chip.dataset.group = name;
+        chip.draggable = true;
         chip.textContent = name;
+        chip.title = 'Drag to reorder groups';
         const remove=document.createElement('span');
         remove.className='remove';
         remove.textContent='×';
@@ -1917,8 +2010,78 @@
           renderGroupSelectors();
           renderGroupManager();
         });
+        chip.addEventListener('dragstart', (e)=>{
+          dragGroupName = name;
+          chip.classList.add('dragging');
+          if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', name);
+          }
+        });
+        chip.addEventListener('dragend', () => {
+          clearGroupDragState();
+        });
+        chip.addEventListener('dragover', (e)=>{
+          if(!dragGroupName || dragGroupName === name) return;
+          e.preventDefault();
+          const rect = chip.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          chip.classList.toggle('drag-over-after', after);
+          chip.classList.toggle('drag-over-before', !after);
+        });
+        chip.addEventListener('dragleave', ()=>{
+          chip.classList.remove('drag-over-before','drag-over-after');
+        });
+        chip.addEventListener('drop', (e)=>{
+          if(!dragGroupName) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const rect = chip.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          const changed = reorderItemGroups(from, name, after);
+          clearGroupDragState();
+          if(changed){
+            commitGroupReorder();
+          }
+        });
         chip.appendChild(remove);
         groupPaletteEl.appendChild(chip);
+      });
+    }
+
+    function clearGroupDragState(){
+      dragGroupName = null;
+      document.querySelectorAll('.chip-tag.group-chip').forEach(chip => chip.classList.remove('dragging','drag-over-before','drag-over-after'));
+      document.querySelectorAll('.note-group-title.draggable').forEach(title => title.classList.remove('dragging','drag-over-before','drag-over-after'));
+      if(groupPaletteEl){
+        groupPaletteEl.classList.remove('drag-over-end');
+      }
+    }
+
+    if(groupPaletteEl){
+      groupPaletteEl.addEventListener('dragover', (e)=>{
+        if(!dragGroupName) return;
+        if(e.target !== groupPaletteEl) return;
+        e.preventDefault();
+        groupPaletteEl.classList.add('drag-over-end');
+      });
+      groupPaletteEl.addEventListener('dragleave', (e)=>{
+        if(e.target === groupPaletteEl){
+          groupPaletteEl.classList.remove('drag-over-end');
+        }
+      });
+      groupPaletteEl.addEventListener('drop', (e)=>{
+        if(!dragGroupName) return;
+        if(e.target !== groupPaletteEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+        const changed = moveItemGroupToIndex(from, state.itemGroups.length);
+        clearGroupDragState();
+        if(changed){
+          commitGroupReorder();
+        }
       });
     }
 
@@ -1980,7 +2143,6 @@
         if(value){
           if(!state.itemGroups.includes(value)){
             state.itemGroups.push(value);
-            state.itemGroups.sort((a,b)=>a.localeCompare(b));
           }
           setLastGroup(value);
         } else {
@@ -2039,7 +2201,6 @@
       const groupValue = taskGroupSelect ? normalizeGroupValue(taskGroupSelect.value) : getLastGroup();
       if(groupValue && !state.itemGroups.includes(groupValue)){
         state.itemGroups.push(groupValue);
-        state.itemGroups.sort((a,b)=>a.localeCompare(b));
       }
       const tags=getSelectedTags();
       const checklist = Array.from(checkUl.querySelectorAll('input[type="checkbox"]')).map(cb=>({ t: cb.nextElementSibling.textContent, done: cb.checked }));
