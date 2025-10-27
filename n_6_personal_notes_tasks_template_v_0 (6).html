@@ -1006,40 +1006,51 @@
       return sanitizeHexColor(brand) || '#ff8a00';
     }
     let groupColorPicker = null;
-    let pendingGroupColorTarget = '';
-    function ensureGroupColorPicker(){
-      if(groupColorPicker) return groupColorPicker;
-      groupColorPicker = document.createElement('input');
-      groupColorPicker.type = 'color';
-      groupColorPicker.id = 'groupColorPicker';
-      groupColorPicker.style.position = 'fixed';
-      groupColorPicker.style.left = '-9999px';
-      document.body.appendChild(groupColorPicker);
-      groupColorPicker.addEventListener('input', () => {
-        if(!pendingGroupColorTarget) return;
-        const changed = setGroupColor(pendingGroupColorTarget, groupColorPicker.value);
+    function teardownGroupColorPicker(){
+      if(!groupColorPicker) return;
+      const picker = groupColorPicker;
+      groupColorPicker = null;
+      if(document.activeElement === picker){
+        picker.blur();
+      }
+      if(picker.parentElement){
+        picker.parentElement.removeChild(picker);
+      }
+    }
+    function openGroupColorPicker(name){
+      const targetKey = normalizeGroupValue(name);
+      teardownGroupColorPicker();
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.id = 'groupColorPicker';
+      picker.style.position = 'fixed';
+      picker.style.left = '-9999px';
+      document.body.appendChild(picker);
+      groupColorPicker = picker;
+      const handleInput = () => {
+        const changed = setGroupColor(targetKey, picker.value);
         if(changed){
           markDirty();
           renderGroupManager();
           renderNotesList();
         }
-      });
-      groupColorPicker.addEventListener('change', () => {
-        pendingGroupColorTarget = '';
-        groupColorPicker.blur();
-      });
-      return groupColorPicker;
-    }
-    function openGroupColorPicker(name){
-      const picker = ensureGroupColorPicker();
-      const key = normalizeGroupValue(name);
-      pendingGroupColorTarget = key;
-      const current = getGroupColor(key);
+      };
+      const handleClose = () => {
+        teardownGroupColorPicker();
+      };
+      picker.addEventListener('input', handleInput);
+      picker.addEventListener('change', handleClose);
+      picker.addEventListener('cancel', handleClose);
+      picker.addEventListener('blur', handleClose);
+      const current = getGroupColor(targetKey);
       const nextValue = current || getDefaultGroupColor();
       if(picker.value !== nextValue){
         picker.value = nextValue;
       } else {
         picker.setAttribute('value', nextValue);
+      }
+      if(document.activeElement && document.activeElement !== picker && typeof document.activeElement.blur === 'function'){
+        document.activeElement.blur();
       }
       const invokePicker = () => {
         if(typeof picker.showPicker === 'function'){
@@ -1053,10 +1064,17 @@
         picker.focus({ preventScroll: true });
         picker.click();
       };
-      if(document.activeElement && document.activeElement !== picker){
-        document.activeElement.blur();
-      }
-      requestAnimationFrame(invokePicker);
+      invokePicker();
+      requestAnimationFrame(() => {
+        if(document.activeElement !== picker){
+          invokePicker();
+        }
+      });
+      setTimeout(() => {
+        if(document.activeElement !== picker){
+          invokePicker();
+        }
+      }, 120);
     }
     function hexToRgba(hex, alpha){
       const rgb = hexToRgb(hex);
