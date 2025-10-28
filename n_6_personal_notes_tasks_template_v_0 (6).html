@@ -36,6 +36,18 @@
       max-width:min(1400px, calc(100vw - 40px));
       padding:clamp(16px, 2.5vw, 28px);
     }
+    body.table-full .wrap{
+      max-width:none;
+      width:100%;
+      padding-left:clamp(16px, 2vw, 48px);
+      padding-right:clamp(16px, 2vw, 48px);
+    }
+    body.table-full #view-table .card-body{
+      padding:24px;
+    }
+    body.table-full #view-table .grid{
+      overflow:auto;
+    }
 
     /* --- Tab bar with status chips + gear --- */
     .tab-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 0 8px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 6px 12px rgba(15,23,42,.08)}
@@ -141,6 +153,62 @@
       text-transform:uppercase;
     }
     .note-section-title:first-child{margin-top:0;}
+    .note-group-title{
+      font-size:13px;
+      font-weight:600;
+      color:var(--group-title-text,var(--ink));
+      margin:12px 0 6px;
+      position:relative;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:var(--group-title-bg,var(--head-tint));
+      border:1px solid var(--group-border-color,var(--head-tint-border));
+      transition:background .2s,color .2s,border-color .2s;
+    }
+    .note-group-title.collapsed{opacity:.75;}
+    .note-group-title.task-drop{box-shadow:0 0 0 2px var(--brand1);}
+    .group-label{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
+    .group-label .group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .group-actions{display:flex;align-items:center;gap:4px;}
+    .group-action{border:none;border-radius:6px;padding:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.6);color:inherit;transition:background .2s,opacity .2s;}
+    .group-action:hover{background:rgba(255,255,255,.85);}
+    .group-action:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
+    .group-action.group-color{width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.15);border-radius:50%;}
+    .group-action.group-color.has-color{border-color:transparent;}
+    .group-action.group-color-clear{width:22px;height:22px;padding:0;border:1px solid rgba(15,23,42,.15);border-radius:6px;font-size:14px;line-height:1;background:#fff;color:var(--muted);}
+    .group-action.group-color-clear:hover{background:rgba(15,23,42,.08);}
+    .group-action.group-collapse{min-width:22px;font-size:12px;line-height:1;}
+    .note-group-title.draggable{cursor:grab;user-select:none;}
+    .note-group-title.draggable:active{cursor:grabbing;}
+    .note-group-title.dragging{opacity:.7;}
+    .note-group-title.drag-over-before::before,.note-group-title.drag-over-after::after{content:'';position:absolute;left:0;right:0;height:2px;background:var(--brand1);border-radius:999px;opacity:.9;}
+    .note-group-title.drag-over-before::before{top:-6px;}
+    .note-group-title.drag-over-after::after{bottom:-6px;}
+    .note-group-container{
+      border:1px solid var(--group-border-color,var(--line));
+      border-radius:10px;
+      padding:4px 8px;
+      background:var(--group-fill-color,#fff);
+      margin-bottom:8px;
+      transition:background .2s,border-color .2s;
+    }
+    .note-group-container.drag-over{
+      border-color:var(--head-tint-border);
+      background:var(--head-tint);
+    }
+    .note-group-container.collapsed{display:none;}
+    .note-group-container.empty{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:13px;
+      padding:12px;
+    }
+    .note-group-placeholder{padding:8px 0;color:var(--muted);font-size:12px;text-align:center;}
     .note-item.note-task{
       cursor:pointer;
       align-items:flex-start;
@@ -188,6 +256,19 @@
     .tag-chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
     .chip-tag.selected{background:var(--finish-pill-bg);border-color:var(--finish-pill-border);color:var(--finish-pill-text)}
+    .chip-tag.group-chip{position:relative;padding-right:26px;cursor:grab;user-select:none;display:inline-flex;align-items:center;gap:6px;}
+    .chip-tag.group-chip:active{cursor:grabbing;}
+    .chip-tag.group-chip.dragging{opacity:.65;}
+    .chip-tag.group-chip.is-collapsed:not(.dragging){opacity:.7;}
+    .chip-tag.group-chip.drag-over-before,.chip-tag.group-chip.drag-over-after{border-color:var(--brand1);box-shadow:0 0 0 2px var(--head-tint-border);}
+    .chip-tag.group-chip.drag-over-before::before,.chip-tag.group-chip.drag-over-after::after{content:'';position:absolute;left:8px;right:8px;height:2px;background:var(--brand1);border-radius:999px;opacity:.9;}
+    .chip-tag.group-chip.drag-over-before::before{top:-4px;}
+    .chip-tag.group-chip.drag-over-after::after{bottom:-4px;}
+    .chip-tag.group-chip .remove{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.7;cursor:pointer;}
+    #groupPalette.drag-over-end{outline:2px dashed var(--brand1);outline-offset:6px;border-radius:16px;padding-bottom:8px;}
+    .chip-tag.group-chip .remove:hover{opacity:1;}
+    .chip-tag.group-chip .color-dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(15,23,42,.25);background:var(--head-tint);flex-shrink:0;cursor:pointer;}
+    .chip-tag.group-chip .chip-label{font-weight:600;}
     .task-list{display:grid;gap:10px}
     .task-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
     .task-title{
@@ -203,7 +284,7 @@
     .checklist{margin:6px 0 0;padding-left:22px}
 
     /* Kanban */
-    .kanban{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+    .kanban{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:start}
     .col{background:var(--kanban-col);border:1px solid var(--line);border-radius:12px;min-height:240px;display:flex;flex-direction:column}
     .col-head{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700}
     .col-body{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
@@ -532,8 +613,10 @@
       <div class="card-head">Main</div>
       <div class="card-body">
         <!-- Input area for adding new checklist items -->
-        <div class="toolbar" style="margin-bottom:8px;">
-          <input id="newItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+        <div class="toolbar" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <input id="newItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px;min-width:160px"/>
+          <select id="newItemGroupSelect" class="btn" aria-label="Assign to group" style="min-width:160px;"></select>
+          <button class="btn" id="btnQuickAddGroup" type="button">+ Group</button>
           <button class="btn" id="btnAddNoteItem">Add</button>
         </div>
         <!-- Hidden textarea to store checklist items (kept for compatibility with internal logic) -->
@@ -580,6 +663,16 @@
             </div>
           </div>
         </div>
+        <div class="row" style="margin-top:8px">
+          <div class="field"><label>Item Group</label>
+            <select id="taskGroupSelect" class="btn" style="width:100%;max-width:240px;min-width:160px" aria-label="Select item group"></select>
+            <div class="toolbar" style="margin-top:6px;gap:6px;">
+              <input id="newGroupInput" class="btn" placeholder="New group name" style="padding:6px 10px;flex:1;min-width:160px"/>
+              <button class="btn" id="btnAddGroup" type="button">Add Group</button>
+            </div>
+            <div class="tag-chips" id="groupPalette" style="margin-top:6px"></div>
+          </div>
+        </div>
         <div class="row">
           <div class="field"><label>Checklist</label>
             <div class="toolbar">
@@ -602,8 +695,14 @@
     <section id="view-kanban" class="card" style="display:none">
       <div class="card-head">Kanban</div>
       <div class="card-body">
-        <div class="toolbar" style="margin-bottom:8px;">
-          <input id="kanbanNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px"/>
+        <div class="toolbar" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <select id="kanbanGrouping" class="btn" aria-label="Group Kanban" style="flex:0 0 auto;min-width:150px;">
+            <option value="tab">Tab</option>
+            <option value="priority">Priority</option>
+            <option value="category">Category</option>
+            <option value="date">Date</option>
+          </select>
+          <input id="kanbanNewItemInput" class="btn" placeholder="Add new item…" style="flex:1;padding:6px 10px;min-width:200px"/>
           <button class="btn" id="btnAddKanbanItem">Add</button>
         </div>
         <div class="kanban" id="kanban"></div>
@@ -620,6 +719,7 @@
               <tr>
                 <th data-key="title">Title</th>
                 <th data-key="status">Status</th>
+                <th data-key="group">Group</th>
                 <th data-key="priority">Priority</th>
                 <th data-key="dueDate">Due</th>
                 <th data-key="tags">Tags</th>
@@ -678,6 +778,9 @@
     <div class="modal-card card">
       <div class="card-head">Edit Item</div>
       <div class="card-body">
+        <div class="field"><label>Title</label>
+          <input type="text" id="modalTitleInput" placeholder="Task title"/>
+        </div>
         <div class="field"><label>Status</label>
           <select id="modalStatusSelect">
             <option value="backlog">Backlog</option>
@@ -715,6 +818,9 @@
             <button class="btn" id="modalAddTag">Add Tag</button>
           </div>
         </div>
+        <div class="field"><label>Item Group</label>
+          <select id="modalGroupSelect" class="btn" style="width:100%;max-width:240px;min-width:160px"></select>
+        </div>
         <div class="toolbar" style="margin-top:12px">
           <button id="modalSaveBtn" class="btn primary">Save</button>
           <button id="modalCancelBtn" class="btn">Cancel</button>
@@ -743,14 +849,20 @@
 
     // ---------- State ----------
     const LSKEY='n6-notes-tasks-v1';
+    const KANBAN_GROUP_OPTIONS=['tab','priority','category','date'];
     let state=null, unsynced=false;
     // Track the index of the note item currently being dragged for reordering
     let dragNoteIndex = null;
+    let dragManualTaskId = null;
+    let dragGroupName = null;
     const defaultState = ()=>({
       notes:'',
       tags:['Work','Home','Urgent'],
       tasks:[], // {id,title,status,priority,tags[],checklist:[{t,done}],createdAt}
-      settings:{theme:'regal'}
+      manualOrder:[],
+      itemGroups:['General'],
+      groupMeta:{},
+      settings:{theme:'regal',kanbanGrouping:'tab',lastGroup:''}
     });
     function save(){ try{ localStorage.setItem(LSKEY, JSON.stringify(state)); }catch(e){} setSaved(true); }
     function load(){
@@ -758,13 +870,400 @@
       catch(e){ state=defaultState(); }
       if(!Array.isArray(state.tags)) state.tags=[];
       if(!Array.isArray(state.tasks)) state.tasks=[];
+      if(!Array.isArray(state.itemGroups)) state.itemGroups=[];
+      state.itemGroups = ensureItemGroups();
+      const extraGroups = new Set();
       state.tasks = state.tasks.filter(t => t && typeof t === 'object').map(t => {
         if(typeof t.details !== 'string') t.details = '';
+        t.status = normalizeStatusValue(t.status);
+        ensureLastActiveStatus(t);
+        t.group = normalizeGroupValue(t.group);
+        if(t.group) extraGroups.add(t.group);
         return t;
       });
+      extraGroups.forEach(name => {
+        if(name && !state.itemGroups.includes(name)){
+          state.itemGroups.push(name);
+        }
+      });
+      state.itemGroups = ensureItemGroups();
+      if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
+      if(!state.settings || typeof state.settings !== 'object'){
+        state.settings = {theme:'regal',kanbanGrouping:'tab',lastGroup:''};
+      }
+      if(typeof state.settings.theme !== 'string') state.settings.theme='regal';
+      if(!KANBAN_GROUP_OPTIONS.includes(state.settings.kanbanGrouping)){
+        state.settings.kanbanGrouping='tab';
+      }
+      const lastGroup = normalizeGroupValue(state.settings.lastGroup);
+      state.settings.lastGroup = lastGroup && state.itemGroups.includes(lastGroup) ? lastGroup : '';
     }
     function setSaved(ok){ const chip=document.getElementById('chipSave'); chip.classList.remove('ok','warn'); chip.classList.add(ok?'ok':'warn'); chip.lastElementChild.textContent = ok? 'Saved' : 'Unsaved'; unsynced=!ok; }
     function markDirty(){ setSaved(false); save(); }
+
+    function sanitizeGroupName(name){
+      if(typeof name !== 'string') return '';
+      return name.trim().replace(/\s+/g,' ').slice(0, 80);
+    }
+    function normalizeGroupValue(name){
+      const normalized = sanitizeGroupName(name);
+      return normalized;
+    }
+    function sanitizeHexColor(value){
+      if(typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if(!trimmed) return '';
+      const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+      if(!match) return '';
+      let hex = match[1].toLowerCase();
+      if(hex.length === 3){
+        hex = hex.split('').map(ch => ch + ch).join('');
+      }
+      return `#${hex}`;
+    }
+    function sanitizeGroupMetaEntry(entry){
+      if(!entry || typeof entry !== 'object') return { color:'', collapsed:false };
+      const color = sanitizeHexColor(entry.color);
+      return { color: color || '', collapsed: !!entry.collapsed };
+    }
+    function ensureGroupMeta(){
+      if(!state || typeof state !== 'object') return {};
+      if(!state.groupMeta || typeof state.groupMeta !== 'object') state.groupMeta = {};
+      const normalizedEntries = {};
+      Object.keys(state.groupMeta).forEach(key => {
+        const normalizedKey = normalizeGroupValue(key);
+        const sanitized = sanitizeGroupMetaEntry(state.groupMeta[key]);
+        if(!normalizedEntries.hasOwnProperty(normalizedKey)){
+          normalizedEntries[normalizedKey] = sanitized;
+        } else {
+          if(!normalizedEntries[normalizedKey].color && sanitized.color){
+            normalizedEntries[normalizedKey].color = sanitized.color;
+          }
+          if(sanitized.collapsed){
+            normalizedEntries[normalizedKey].collapsed = true;
+          }
+        }
+      });
+      if(!normalizedEntries['']){
+        normalizedEntries[''] = { color:'', collapsed:false };
+      }
+      const groups = Array.isArray(state.itemGroups) ? state.itemGroups.map(normalizeGroupValue) : [];
+      groups.forEach(name => {
+        if(!normalizedEntries.hasOwnProperty(name)){
+          normalizedEntries[name] = { color:'', collapsed:false };
+        } else {
+          normalizedEntries[name] = sanitizeGroupMetaEntry(normalizedEntries[name]);
+        }
+      });
+      Object.keys(normalizedEntries).forEach(key => {
+        const entry = normalizedEntries[key];
+        entry.color = sanitizeHexColor(entry.color) || '';
+        entry.collapsed = !!entry.collapsed;
+      });
+      state.groupMeta = normalizedEntries;
+      return state.groupMeta;
+    }
+    function ensureGroupPrefsEntry(name){
+      ensureGroupMeta();
+      const key = normalizeGroupValue(name);
+      if(!state.groupMeta.hasOwnProperty(key)){
+        state.groupMeta[key] = { color:'', collapsed:false };
+      } else {
+        state.groupMeta[key] = sanitizeGroupMetaEntry(state.groupMeta[key]);
+      }
+      return state.groupMeta[key];
+    }
+    function getGroupPrefs(name){
+      ensureGroupMeta();
+      const key = normalizeGroupValue(name);
+      if(!state.groupMeta.hasOwnProperty(key)){
+        return { color:'', collapsed:false };
+      }
+      return sanitizeGroupMetaEntry(state.groupMeta[key]);
+    }
+    function getGroupColor(name){
+      return getGroupPrefs(name).color;
+    }
+    function isGroupCollapsed(name){
+      return getGroupPrefs(name).collapsed;
+    }
+    function setGroupColor(name, color){
+      const entry = ensureGroupPrefsEntry(name);
+      const sanitized = sanitizeHexColor(color);
+      if(entry.color === sanitized) return false;
+      entry.color = sanitized || '';
+      return true;
+    }
+    function setGroupCollapsed(name, collapsed){
+      const entry = ensureGroupPrefsEntry(name);
+      const next = !!collapsed;
+      if(entry.collapsed === next) return false;
+      entry.collapsed = next;
+      return true;
+    }
+    function getDefaultGroupColor(){
+      const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand1');
+      return sanitizeHexColor(brand) || '#ff8a00';
+    }
+    let groupColorPicker = null;
+    function teardownGroupColorPicker(){
+      if(!groupColorPicker) return;
+      const picker = groupColorPicker;
+      groupColorPicker = null;
+      if(document.activeElement === picker){
+        picker.blur();
+      }
+      if(picker.parentElement){
+        picker.parentElement.removeChild(picker);
+      }
+    }
+    function openGroupColorPicker(name){
+      const targetKey = normalizeGroupValue(name);
+      teardownGroupColorPicker();
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.id = 'groupColorPicker';
+      picker.style.position = 'fixed';
+      picker.style.left = '-9999px';
+      document.body.appendChild(picker);
+      groupColorPicker = picker;
+      const handleInput = () => {
+        const changed = setGroupColor(targetKey, picker.value);
+        if(changed){
+          markDirty();
+          renderGroupManager();
+          renderNotesList();
+        }
+      };
+      const handleClose = () => {
+        teardownGroupColorPicker();
+      };
+      picker.addEventListener('input', handleInput);
+      picker.addEventListener('change', handleClose);
+      picker.addEventListener('cancel', handleClose);
+      picker.addEventListener('blur', handleClose);
+      const current = getGroupColor(targetKey);
+      const nextValue = current || getDefaultGroupColor();
+      if(picker.value !== nextValue){
+        picker.value = nextValue;
+      } else {
+        picker.setAttribute('value', nextValue);
+      }
+      if(document.activeElement && document.activeElement !== picker && typeof document.activeElement.blur === 'function'){
+        document.activeElement.blur();
+      }
+      const invokePicker = () => {
+        if(typeof picker.showPicker === 'function'){
+          try {
+            picker.showPicker();
+            return;
+          } catch(err) {
+            /* fall through to click */
+          }
+        }
+        picker.focus({ preventScroll: true });
+        picker.click();
+      };
+      invokePicker();
+      requestAnimationFrame(() => {
+        if(document.activeElement !== picker){
+          invokePicker();
+        }
+      });
+      setTimeout(() => {
+        if(document.activeElement !== picker){
+          invokePicker();
+        }
+      }, 120);
+    }
+    function hexToRgba(hex, alpha){
+      const rgb = hexToRgb(hex);
+      return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+    }
+    function getReadableTextColor(hex){
+      const rgb = hexToRgb(hex);
+      const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+      return luminance > 0.6 ? '#0f172a' : '#ffffff';
+    }
+    function ensureItemGroups(){
+      if(!Array.isArray(state.itemGroups)) state.itemGroups = [];
+      const seen = new Set();
+      const cleaned = [];
+      state.itemGroups.forEach(name => {
+        const normalized = sanitizeGroupName(name);
+        if(!normalized) return;
+        const key = normalized.toLowerCase();
+        if(seen.has(key)) return;
+        seen.add(key);
+        cleaned.push(normalized);
+      });
+      if(!cleaned.length){
+        cleaned.push('General');
+      }
+      state.itemGroups = cleaned;
+      ensureGroupMeta();
+      return state.itemGroups;
+    }
+    function addItemGroup(name){
+      const normalized = normalizeGroupValue(name);
+      if(!normalized) return false;
+      ensureItemGroups();
+      if(state.itemGroups.includes(normalized)) return false;
+      state.itemGroups.push(normalized);
+      ensureGroupPrefsEntry(normalized);
+      return true;
+    }
+    function removeItemGroup(name){
+      const normalized = normalizeGroupValue(name);
+      ensureItemGroups();
+      const idx = state.itemGroups.indexOf(normalized);
+      if(idx < 0) return false;
+      state.itemGroups.splice(idx,1);
+      if(state.groupMeta && Object.prototype.hasOwnProperty.call(state.groupMeta, normalized)){
+        delete state.groupMeta[normalized];
+      }
+      state.tasks.forEach(task => {
+        if(normalizeGroupValue(task.group) === normalized){
+          task.group = '';
+        }
+      });
+      if(state.settings && normalizeGroupValue(state.settings.lastGroup) === normalized){
+        state.settings.lastGroup = '';
+      }
+      ensureItemGroups();
+      return true;
+    }
+    function getLastGroup(){
+      if(!state || !state.settings) return '';
+      const normalized = normalizeGroupValue(state.settings.lastGroup);
+      return normalized && state.itemGroups.includes(normalized) ? normalized : '';
+    }
+    function setLastGroup(name){
+      if(!state.settings || typeof state.settings !== 'object'){
+        state.settings = {theme:'regal',kanbanGrouping:'tab',lastGroup:''};
+      }
+      const normalized = normalizeGroupValue(name);
+      state.settings.lastGroup = normalized && state.itemGroups.includes(normalized) ? normalized : '';
+    }
+    function setTaskGroup(task, name){
+      if(!task || typeof task !== 'object') return false;
+      const normalized = normalizeGroupValue(name);
+      const current = normalizeGroupValue(task.group);
+      if(current === normalized) return false;
+      task.group = normalized;
+      if(normalized && !state.itemGroups.includes(normalized)){
+        state.itemGroups.push(normalized);
+        ensureGroupPrefsEntry(normalized);
+      }
+      if(!normalized && current && state.settings && normalizeGroupValue(state.settings.lastGroup) === current){
+        state.settings.lastGroup = '';
+      }
+      return true;
+    }
+
+    function moveItemGroupToIndex(name, targetIndex){
+      const normalized = normalizeGroupValue(name);
+      if(!normalized) return false;
+      const groups = ensureItemGroups();
+      const fromIdx = groups.indexOf(normalized);
+      if(fromIdx < 0) return false;
+      const [item] = groups.splice(fromIdx, 1);
+      let dest = Number.isFinite(targetIndex) ? Math.round(targetIndex) : groups.length;
+      if(dest < 0) dest = 0;
+      if(dest > groups.length) dest = groups.length;
+      groups.splice(dest, 0, item);
+      return dest !== fromIdx;
+    }
+
+    function reorderItemGroups(sourceName, targetName, insertAfter){
+      const source = normalizeGroupValue(sourceName);
+      const target = normalizeGroupValue(targetName);
+      if(!source || !target || source === target) return false;
+      if(source === '__ungrouped' || target === '__ungrouped') return false;
+      ensureItemGroups();
+      const groups = state.itemGroups;
+      const fromIdx = groups.indexOf(source);
+      const toIdx = groups.indexOf(target);
+      if(fromIdx < 0 || toIdx < 0) return false;
+      let insertIdx = insertAfter ? toIdx + 1 : toIdx;
+      if(fromIdx < insertIdx) insertIdx -= 1;
+      return moveItemGroupToIndex(source, insertIdx);
+    }
+
+    function commitGroupReorder(){
+      markDirty();
+      refreshTaskViews();
+    }
+
+    function refreshTaskShellViews(){
+      renderGroupSelectors();
+      renderGroupManager();
+      renderTasks();
+      renderKanban();
+      renderGrid();
+      renderCalendar();
+      if(selectedDate) renderDay(selectedDate);
+    }
+
+    function refreshTaskViews(){
+      renderNotesList();
+      refreshTaskShellViews();
+    }
+
+    function normalizeStatusValue(value){
+      if(typeof value!=='string') return 'backlog';
+      const trimmed=value.trim().toLowerCase();
+      return trimmed||'backlog';
+    }
+    function ensureLastActiveStatus(task){
+      if(!task || typeof task!=='object') return 'backlog';
+      const current = typeof task.lastActiveStatus==='string'? task.lastActiveStatus.trim().toLowerCase() : '';
+      if(current){ task.lastActiveStatus=current; return current; }
+      const status = normalizeStatusValue(task.status);
+      if(status==='done'){
+        task.lastActiveStatus='backlog';
+      } else {
+        task.lastActiveStatus=status;
+      }
+      return task.lastActiveStatus;
+    }
+    function applyTaskStatus(task,nextStatus){
+      if(!task || typeof task!=='object') return false;
+      const normalized=normalizeStatusValue(nextStatus);
+      const prevStatus=normalizeStatusValue(task.status);
+      if(normalized===prevStatus) return false;
+      if(prevStatus!=='done'){
+        task.lastActiveStatus=prevStatus;
+      }
+      if(normalized!=='done'){
+        task.lastActiveStatus=normalized;
+      }
+      task.status=normalized;
+      return true;
+    }
+    function setTaskCompletion(task,isDone){
+      if(!task || typeof task!=='object') return false;
+      if(isDone){
+        return applyTaskStatus(task,'done');
+      }
+      const restore=ensureLastActiveStatus(task);
+      return applyTaskStatus(task, restore);
+    }
+    function compareTaskDisplayOrder(a,b){
+      if(a===b) return 0;
+      if(!a) return 1;
+      if(!b) return -1;
+      const doneA = normalizeStatusValue(a.status)==='done';
+      const doneB = normalizeStatusValue(b.status)==='done';
+      if(doneA!==doneB) return doneA?1:-1;
+      const dueA = (typeof a.dueDate==='number' && Number.isFinite(a.dueDate))? a.dueDate : Infinity;
+      const dueB = (typeof b.dueDate==='number' && Number.isFinite(b.dueDate))? b.dueDate : Infinity;
+      if(dueA!==dueB) return dueA - dueB;
+      const priorityA = Number(a.priority)||0;
+      const priorityB = Number(b.priority)||0;
+      if(priorityA!==priorityB) return priorityA - priorityB;
+      return (a.createdAt||0) - (b.createdAt||0);
+    }
 
     // ---------- Router ----------
     // Extend views to include calendar and day
@@ -783,6 +1282,7 @@
       Object.keys(views).forEach(k=> views[k].style.display = k===id? '':'none');
       document.querySelectorAll('.tab-buttons button').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
       document.getElementById('tabSelect').value = id;
+      document.body.classList.toggle('table-full', id==='table');
       if(id==='kanban'){ renderKanban(); }
       if(id==='table'){ renderGrid(); }
       if(id==='tasks'){ renderTagPalette(); renderTasks(); }
@@ -799,6 +1299,23 @@
     }
     document.querySelectorAll('.tab-buttons button').forEach(b=> b.addEventListener('click', ()=>showView(b.dataset.view)) );
     document.getElementById('tabSelect').addEventListener('change', (e)=>showView(e.target.value));
+
+    const kanbanGroupingSelect=document.getElementById('kanbanGrouping');
+    if(kanbanGroupingSelect){
+      kanbanGroupingSelect.value=getKanbanGroupingValue();
+      kanbanGroupingSelect.addEventListener('change',(e)=>{
+        const value=e.target.value;
+        const next=KANBAN_GROUP_OPTIONS.includes(value)? value : 'tab';
+        if(!state.settings || typeof state.settings!=='object'){
+          state.settings={theme:'regal',kanbanGrouping:next};
+        }
+        if(state.settings.kanbanGrouping!==next){
+          state.settings.kanbanGrouping=next;
+          markDirty();
+        }
+        renderKanban();
+      });
+    }
 
     // ---------- Notes ----------
     const notesInput = document.getElementById('notesInput'); const notesPreview = document.getElementById('notesPreview');
@@ -917,14 +1434,20 @@
     function renderNotesList(){
       notesPreview.innerHTML = '';
       const manualTasks = state.tasks.filter(t => !t.fromNotes);
-      const tasksSorted = manualTasks.slice().sort((a,b) => {
-        const doneA = a.status === 'done' ? 1 : 0;
-        const doneB = b.status === 'done' ? 1 : 0;
-        if(doneA !== doneB) return doneA - doneB;
-        const aDue = a.dueDate ?? Infinity;
-        const bDue = b.dueDate ?? Infinity;
-        if(aDue !== bDue) return aDue - bDue;
-        return (a.createdAt || 0) - (b.createdAt || 0);
+      const manualOrder = ensureManualOrder();
+      const orderIndex = new Map(manualOrder.map((id, idx) => [id, idx]));
+      const baseIndex = new Map();
+      manualTasks.forEach((task, idx) => baseIndex.set(task.id, idx));
+      const tasksSorted = manualTasks.slice().sort((a, b) => {
+        const doneA = String(a.status||'').toLowerCase()==='done';
+        const doneB = String(b.status||'').toLowerCase()==='done';
+        if(doneA!==doneB) return doneA?1:-1;
+        const fallbackA = baseIndex.has(a.id) ? baseIndex.get(a.id) : manualTasks.length;
+        const fallbackB = baseIndex.has(b.id) ? baseIndex.get(b.id) : manualTasks.length;
+        const idxA = orderIndex.has(a.id) ? orderIndex.get(a.id) : manualOrder.length + fallbackA;
+        const idxB = orderIndex.has(b.id) ? orderIndex.get(b.id) : manualOrder.length + fallbackB;
+        if(idxA!==idxB) return idxA - idxB;
+        return (a.createdAt||0) - (b.createdAt||0);
       });
       let appendedMainHeader = false;
       const ensureMainHeader = () => {
@@ -935,23 +1458,336 @@
         notesPreview.appendChild(header);
         appendedMainHeader = true;
       };
+      const groupContainers = new Map();
+      const seenGroupKeys = new Set();
+      const groupOrder = [];
+      ensureItemGroups().forEach(name => {
+        const key = normalizeGroupValue(name);
+        if(key && !seenGroupKeys.has(key)){
+          seenGroupKeys.add(key);
+          groupOrder.push(key);
+        }
+      });
       tasksSorted.forEach(task => {
+        const key = normalizeGroupValue(task.group);
+        if(key && !seenGroupKeys.has(key)){
+          seenGroupKeys.add(key);
+          groupOrder.push(key);
+        }
+      });
+      const hasUngrouped = tasksSorted.some(task => !normalizeGroupValue(task.group));
+      if(hasUngrouped){
+        groupOrder.push('__ungrouped');
+      }
+      const ensureGroupPlaceholder = (container) => {
+        if(!container) return;
+        const hasItems = container.querySelector('.note-item');
+        let placeholder = container.querySelector('.note-group-placeholder');
+        if(hasItems){
+          if(placeholder) placeholder.remove();
+          container.classList.remove('empty');
+        } else {
+          if(!placeholder){
+            placeholder = document.createElement('div');
+            placeholder.className = 'note-group-placeholder';
+            placeholder.textContent = 'Drop items here';
+            container.appendChild(placeholder);
+          }
+          container.classList.add('empty');
+        }
+      };
+      const ensureGroupSection = (key) => {
         ensureMainHeader();
+        const normalizedKey = key || '__ungrouped';
+        if(groupContainers.has(normalizedKey)) return groupContainers.get(normalizedKey);
+        const metaKey = normalizedKey === '__ungrouped' ? '' : normalizedKey;
+        const displayName = normalizedKey === '__ungrouped' ? 'Ungrouped' : normalizedKey;
+        const title = document.createElement('div');
+        title.className = 'note-group-title';
+        title.dataset.group = normalizedKey;
+        if(normalizedKey !== '__ungrouped'){
+          title.classList.add('draggable');
+          title.draggable = true;
+          title.title = 'Drag to reorder groups';
+          title.addEventListener('dragstart', (e) => {
+            dragGroupName = normalizedKey;
+            title.classList.add('dragging');
+            if(e.dataTransfer){
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', normalizedKey);
+            }
+          });
+          title.addEventListener('dragend', () => {
+            clearGroupDragState();
+          });
+        } else {
+          title.title = displayName;
+        }
+        const label = document.createElement('div');
+        label.className = 'group-label';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'group-name';
+        nameSpan.textContent = displayName;
+        label.appendChild(nameSpan);
+        const actions = document.createElement('div');
+        actions.className = 'group-actions';
+        const colorBtn = document.createElement('button');
+        colorBtn.type = 'button';
+        colorBtn.className = 'group-action group-color';
+        colorBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openGroupColorPicker(metaKey);
+        });
+        colorBtn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if(setGroupColor(metaKey, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        const clearColorBtn = document.createElement('button');
+        clearColorBtn.type = 'button';
+        clearColorBtn.className = 'group-action group-color-clear';
+        clearColorBtn.textContent = '×';
+        clearColorBtn.title = 'Clear colour';
+        clearColorBtn.setAttribute('aria-label', `Clear colour for ${displayName}`);
+        clearColorBtn.hidden = true;
+        clearColorBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(setGroupColor(metaKey, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        clearColorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        const collapseBtn = document.createElement('button');
+        collapseBtn.type = 'button';
+        collapseBtn.className = 'group-action group-collapse';
+        collapseBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = !isGroupCollapsed(metaKey);
+          if(setGroupCollapsed(metaKey, next)){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        collapseBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+        label.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const next = !isGroupCollapsed(metaKey);
+          if(setGroupCollapsed(metaKey, next)){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        actions.appendChild(colorBtn);
+        actions.appendChild(clearColorBtn);
+        actions.appendChild(collapseBtn);
+        title.appendChild(label);
+        title.appendChild(actions);
+        const container = document.createElement('div');
+        container.className = 'note-group-container';
+        container.dataset.group = normalizedKey;
+        ensureGroupPlaceholder(container);
+        const updateVisualState = () => {
+          const prefs = getGroupPrefs(metaKey);
+          const color = prefs.color;
+          const collapsed = !!prefs.collapsed;
+          clearColorBtn.title = `Clear colour for ${displayName}`;
+          clearColorBtn.setAttribute('aria-label', `Clear colour for ${displayName}`);
+          if(color){
+            const textColor = getReadableTextColor(color);
+            title.style.setProperty('--group-title-bg', color);
+            title.style.setProperty('--group-title-text', textColor);
+            title.style.setProperty('--group-border-color', color);
+            container.style.setProperty('--group-border-color', color);
+            container.style.setProperty('--group-fill-color', hexToRgba(color, 0.12));
+            title.classList.add('has-color');
+            container.classList.add('has-color');
+            colorBtn.classList.add('has-color');
+            colorBtn.style.background = color;
+            colorBtn.style.borderColor = 'transparent';
+            colorBtn.style.color = textColor;
+            clearColorBtn.hidden = false;
+            if(textColor === '#ffffff'){
+              collapseBtn.style.background = 'rgba(255,255,255,.25)';
+              collapseBtn.style.color = '#ffffff';
+            } else {
+              collapseBtn.style.background = '';
+              collapseBtn.style.color = '';
+            }
+          } else {
+            title.style.removeProperty('--group-title-bg');
+            title.style.removeProperty('--group-title-text');
+            title.style.removeProperty('--group-border-color');
+            container.style.removeProperty('--group-border-color');
+            container.style.removeProperty('--group-fill-color');
+            title.classList.remove('has-color');
+            container.classList.remove('has-color');
+            colorBtn.classList.remove('has-color');
+            colorBtn.style.background = '';
+            colorBtn.style.borderColor = '';
+            colorBtn.style.color = '';
+            clearColorBtn.hidden = true;
+            collapseBtn.style.background = '';
+            collapseBtn.style.color = '';
+          }
+          colorBtn.title = color ? `Change colour (${color}). Use × to clear.` : 'Set colour';
+          colorBtn.setAttribute('aria-label', color ? `Change colour for ${displayName}. Use clear to remove.` : `Set colour for ${displayName}`);
+          const collapsedLabel = collapsed ? `Expand ${displayName}` : `Collapse ${displayName}`;
+          collapseBtn.textContent = collapsed ? '▸' : '▾';
+          collapseBtn.title = collapsedLabel;
+          collapseBtn.setAttribute('aria-label', collapsedLabel);
+          title.classList.toggle('collapsed', collapsed);
+          container.classList.toggle('collapsed', collapsed);
+          container.style.display = collapsed ? 'none' : '';
+        };
+        updateVisualState();
+        const clearTaskHighlights = () => {
+          document.querySelectorAll('.note-group-title').forEach(el => el.classList.remove('task-drop','drag-over-before','drag-over-after'));
+        };
+        container.addEventListener('dragover', (e) => {
+          if(!dragManualTaskId) return;
+          e.preventDefault();
+          container.classList.add('drag-over');
+        });
+        container.addEventListener('dragleave', () => {
+          container.classList.remove('drag-over');
+        });
+        container.addEventListener('drop', (e) => {
+          e.preventDefault();
+          container.classList.remove('drag-over');
+          const id = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          dragManualTaskId = null;
+          clearTaskHighlights();
+          if(!id) return;
+          applyManualTaskDrop(id, metaKey);
+        });
+        title.addEventListener('dragover', (e) => {
+          if(dragManualTaskId){
+            e.preventDefault();
+            title.classList.add('task-drop');
+            title.classList.remove('drag-over-before','drag-over-after');
+            return;
+          }
+          if(normalizedKey === '__ungrouped') return;
+          if(!dragGroupName || dragGroupName === normalizedKey) return;
+          e.preventDefault();
+          const rect = title.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          title.classList.toggle('drag-over-after', after);
+          title.classList.toggle('drag-over-before', !after);
+        });
+        title.addEventListener('dragleave', () => {
+          title.classList.remove('task-drop','drag-over-before','drag-over-after');
+        });
+        title.addEventListener('drop', (e) => {
+          if(dragManualTaskId){
+            e.preventDefault();
+            e.stopPropagation();
+            const id = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+            dragManualTaskId = null;
+            title.classList.remove('task-drop');
+            clearTaskHighlights();
+            if(id) applyManualTaskDrop(id, metaKey);
+            return;
+          }
+          if(normalizedKey === '__ungrouped') return;
+          if(!dragGroupName) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const rect = title.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          const changed = reorderItemGroups(from, normalizedKey, after);
+          clearGroupDragState();
+          if(changed){
+            commitGroupReorder();
+          }
+        });
+        notesPreview.appendChild(title);
+        notesPreview.appendChild(container);
+        groupContainers.set(normalizedKey, container);
+        return container;
+      };
+      if(!groupOrder.length && manualTasks.length){
+        ensureGroupSection('__ungrouped');
+      }
+      groupOrder.forEach(key => ensureGroupSection(key));
+      tasksSorted.forEach(task => {
+        const groupKey = normalizeGroupValue(task.group) || '__ungrouped';
+        const container = ensureGroupSection(groupKey);
+        const placeholder = container.querySelector('.note-group-placeholder');
+        if(placeholder) placeholder.remove();
+        container.classList.remove('empty');
         const wrapper = document.createElement('div');
         wrapper.className = 'note-item note-check';
-        wrapper.draggable = false;
+        wrapper.draggable = true;
         wrapper.dataset.taskId = task.id;
+        wrapper.dataset.groupKey = groupKey;
         if(task.status === 'done'){ wrapper.classList.add('done'); }
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = task.status === 'done';
         checkbox.addEventListener('change', (e) => {
-          task.status = e.target.checked ? 'done' : 'backlog';
-          wrapper.classList.toggle('done', e.target.checked);
-          markDirty();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          const changed = setTaskCompletion(task, e.target.checked);
+          wrapper.classList.toggle('done', task.status === 'done');
+          if(changed){
+            markDirty();
+          }
+          refreshTaskShellViews();
           renderNotesList();
+        });
+        wrapper.addEventListener('dragstart', (e) => {
+          dragManualTaskId = task.id;
+          if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', task.id);
+          }
+        });
+        wrapper.addEventListener('dragend', () => {
+          dragManualTaskId = null;
+          wrapper.classList.remove('drag-over');
+          document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('task-drop','drag-over-before','drag-over-after'));
+        });
+        wrapper.addEventListener('dragover', (e) => {
+          if(!dragManualTaskId) return;
+          e.preventDefault();
+          wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragleave', () => {
+          wrapper.classList.remove('drag-over');
+        });
+        wrapper.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const fromId = dragManualTaskId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const toId = task.id;
+          wrapper.classList.remove('drag-over');
+          dragManualTaskId = null;
+          document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('task-drop','drag-over-before','drag-over-after'));
+          if(!fromId || !toId) return;
+          const rect = wrapper.getBoundingClientRect();
+          const insertAfter = e.clientY > rect.top + rect.height / 2;
+          const host = wrapper.closest('.note-group-container');
+          const targetGroupKey = host ? (host.dataset.group || '__ungrouped') : '__ungrouped';
+          const targetGroup = targetGroupKey === '__ungrouped' ? '' : targetGroupKey;
+          const movedTask = state.tasks.find(x => x && x.id === fromId && !x.fromNotes);
+          const groupChanged = movedTask ? setTaskGroup(movedTask, targetGroup) : false;
+          const changed = reorderManualTaskOrder(fromId, toId, insertAfter);
+          if(groupChanged || changed){
+            markDirty();
+            renderGroupSelectors();
+            renderGroupManager();
+            renderNotesList();
+            refreshTaskShellViews();
+          }
         });
         const span = document.createElement('span');
         span.className = 'note-text';
@@ -962,8 +1798,9 @@
           if(ev.target.closest('input')) return;
           openTaskModalForId(task.id);
         });
-        notesPreview.appendChild(wrapper);
+        container.appendChild(wrapper);
       });
+      groupContainers.forEach(container => ensureGroupPlaceholder(container));
       const lines = String(state.notes||'').split(/\r?\n/);
       lines.forEach((raw, idx) => {
         if(!raw || /^\s*$/.test(raw)) return;
@@ -1015,8 +1852,7 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          refreshTaskShellViews();
         });
         const span = document.createElement('span');
         span.className = 'note-text';
@@ -1060,8 +1896,7 @@
           syncNotesToTasks();
           markDirty();
           renderNotesList();
-          renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-          if(selectedDate) renderDay(selectedDate);
+          refreshTaskShellViews();
           dragNoteIndex = null;
         });
         div.addEventListener('dragend', () => {
@@ -1079,8 +1914,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
     });
     function appendNewChecklistItem(rawText){
       const text = (rawText || '').trim();
@@ -1092,8 +1926,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
       return true;
     }
 
@@ -1102,6 +1935,22 @@
       const button = document.getElementById(buttonId);
       if(!input || !button) return;
       const commit = () => {
+        const text = (input.value || '').trim();
+        if(!text) return;
+        if(inputId === 'newItemInput'){
+          const selectedGroup = newItemGroupSelect ? normalizeGroupValue(newItemGroupSelect.value || getLastGroup()) : getLastGroup();
+          const created = createManualTask(text, { group: selectedGroup });
+          if(created){
+            if(newItemGroupSelect && selectedGroup){
+              newItemGroupSelect.value = selectedGroup;
+            }
+            setLastGroup(selectedGroup);
+            markDirty();
+            refreshTaskViews();
+          }
+          input.value = '';
+          return;
+        }
         if(appendNewChecklistItem(input.value)){
           input.value = '';
         }
@@ -1124,10 +1973,15 @@
       const trimmed = (title || '').trim();
       if(!trimmed) return null;
       const now = Date.now();
+      const status = normalizeStatusValue(overrides.status || 'backlog');
+      const groupName = normalizeGroupValue(overrides.group != null ? overrides.group : getLastGroup());
+      if(groupName && !state.itemGroups.includes(groupName)){
+        state.itemGroups.push(groupName);
+      }
       const task = {
         id: now.toString(36) + Math.random().toString(36).slice(2),
         title: trimmed,
-        status: typeof overrides.status === 'string' ? overrides.status : 'backlog',
+        status,
         priority: Number.isFinite(overrides.priority) ? overrides.priority : 2,
         tags: Array.isArray(overrides.tags) ? overrides.tags.slice() : [],
         checklist: Array.isArray(overrides.checklist) ? overrides.checklist.map(item => ({
@@ -1137,9 +1991,14 @@
         createdAt: Number.isFinite(overrides.createdAt) ? overrides.createdAt : now,
         dueDate: Number.isFinite(overrides.dueDate) ? overrides.dueDate : getTodayTimestamp(),
         startTime: Number.isFinite(overrides.startTime) ? overrides.startTime : null,
-        details: typeof overrides.details === 'string' ? overrides.details : ''
+        details: typeof overrides.details === 'string' ? overrides.details : '',
+        group: groupName
       };
+      task.lastActiveStatus = status === 'done' ? 'backlog' : status;
       state.tasks.unshift(task);
+      const manualOrder = ensureManualOrder().filter(id => id !== task.id);
+      manualOrder.unshift(task.id);
+      state.manualOrder = manualOrder;
       return task;
     }
 
@@ -1269,10 +2128,21 @@
       items.forEach(it => {
         const key = 'notes:' + it.text.toLowerCase();
         const prev = mapOld.get(key);
+        const prevStatus = prev ? normalizeStatusValue(prev.status) : 'backlog';
+        const status = it.done ? 'done' : prevStatus;
+        const lastActiveStatus = (() => {
+          if(prev){
+            const stored = typeof prev.lastActiveStatus === 'string' ? prev.lastActiveStatus.trim().toLowerCase() : '';
+            if(stored) return normalizeStatusValue(stored);
+            if(prevStatus !== 'done') return prevStatus;
+          }
+          if(status !== 'done') return status;
+          return 'backlog';
+        })();
         next.push({
           id: prev?.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
           title: it.text,
-          status: it.done ? 'done' : (prev?.status || 'backlog'),
+          status,
           priority: prev?.priority ?? 2,
           tags: Array.isArray(prev?.tags) ? prev.tags : [],
           checklist: [],
@@ -1280,12 +2150,95 @@
           dueDate: prev ? (prev.dueDate ?? null) : getTodayTimestamp(),
           startTime: prev?.startTime ?? null,
           details: typeof prev?.details === 'string' ? prev.details : '',
+          lastActiveStatus,
           fromNotes: true,
-          noteKey: key
+          noteKey: key,
+          group: ''
         });
       });
       const manual = state.tasks.filter(t => !t.fromNotes);
       state.tasks = next.concat(manual);
+      ensureManualOrder();
+    }
+
+    function ensureManualOrder(){
+      if(!Array.isArray(state.manualOrder)) state.manualOrder = [];
+      const manualTasks = state.tasks.filter(t => t && !t.fromNotes);
+      const existing = new Set();
+      state.manualOrder = state.manualOrder.filter(id => {
+        if(!manualTasks.some(task => task.id === id)) return false;
+        if(existing.has(id)) return false;
+        existing.add(id);
+        return true;
+      });
+      manualTasks.forEach(task => {
+        if(!existing.has(task.id)){
+          state.manualOrder.push(task.id);
+          existing.add(task.id);
+        }
+      });
+      return state.manualOrder;
+    }
+
+    function reorderManualTaskOrder(fromId, toId, insertAfter){
+      if(!fromId || !toId || fromId === toId) return false;
+      const order = ensureManualOrder().slice();
+      const fromIdx = order.indexOf(fromId);
+      let targetIdx = order.indexOf(toId);
+      if(fromIdx < 0 || targetIdx < 0) return false;
+      const [moved] = order.splice(fromIdx, 1);
+      if(fromIdx < targetIdx) targetIdx -= 1;
+      let insertIndex = insertAfter ? targetIdx + 1 : targetIdx;
+      if(insertIndex < 0) insertIndex = 0;
+      if(insertIndex > order.length) insertIndex = order.length;
+      order.splice(insertIndex, 0, moved);
+      state.manualOrder = order;
+      return true;
+    }
+
+    function moveManualTaskToGroupEnd(taskId, groupName){
+      if(!taskId) return false;
+      const order = ensureManualOrder().slice();
+      const currentIdx = order.indexOf(taskId);
+      if(currentIdx < 0) return false;
+      const manualTasks = state.tasks.filter(t => t && !t.fromNotes);
+      const manualMap = new Map(manualTasks.map(t => [t.id, t]));
+      const normalizedGroup = normalizeGroupValue(groupName);
+      order.splice(currentIdx, 1);
+      let insertIndex = order.length;
+      for(let i = order.length - 1; i >= 0; i--){
+        const otherId = order[i];
+        const otherTask = manualMap.get(otherId);
+        if(!otherTask) continue;
+        const otherGroup = normalizeGroupValue(otherTask.group);
+        if(otherGroup === normalizedGroup){
+          insertIndex = i + 1;
+          break;
+        }
+      }
+      if(insertIndex < 0) insertIndex = 0;
+      if(insertIndex > order.length) insertIndex = order.length;
+      order.splice(insertIndex, 0, taskId);
+      state.manualOrder = order;
+      return true;
+    }
+
+    function applyManualTaskDrop(taskId, groupName){
+      if(!taskId) return false;
+      const task = state.tasks.find(x => x && x.id === taskId && !x.fromNotes);
+      if(!task) return false;
+      const normalizedGroup = normalizeGroupValue(groupName);
+      const groupChanged = setTaskGroup(task, normalizedGroup);
+      const orderChanged = moveManualTaskToGroupEnd(taskId, normalizedGroup);
+      if(groupChanged || orderChanged){
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+        renderNotesList();
+        refreshTaskShellViews();
+        return true;
+      }
+      return false;
     }
 
     function deleteTask(task){
@@ -1307,8 +2260,7 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
     }
 
     function deleteTaskById(taskId){
@@ -1325,8 +2277,296 @@
       syncNotesToTasks();
       markDirty();
       renderNotesList();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
+    }
+
+    // ---------- Item groups ----------
+    const groupPaletteEl = document.getElementById('groupPalette');
+    const newGroupInput = document.getElementById('newGroupInput');
+    const btnAddGroup = document.getElementById('btnAddGroup');
+    const taskGroupSelect = document.getElementById('taskGroupSelect');
+    const newItemGroupSelect = document.getElementById('newItemGroupSelect');
+    const btnQuickAddGroup = document.getElementById('btnQuickAddGroup');
+    const modalGroupSelect = document.getElementById('modalGroupSelect');
+
+    function populateGroupSelect(select, options={}){
+      if(!select) return;
+      const includeBlank = options.includeBlank !== false;
+      const blankLabel = options.blankLabel || 'No Group';
+      const preferred = normalizeGroupValue(options.preferred);
+      const fallback = normalizeGroupValue(options.fallback);
+      select.innerHTML='';
+      if(includeBlank){
+        const opt=document.createElement('option');
+        opt.value='';
+        opt.textContent=blankLabel;
+        select.appendChild(opt);
+      }
+      ensureItemGroups().forEach(name=>{
+        const opt=document.createElement('option');
+        opt.value=name;
+        opt.textContent=name;
+        select.appendChild(opt);
+      });
+      if(preferred && state.itemGroups.includes(preferred)){
+        select.value=preferred;
+      } else if(fallback && state.itemGroups.includes(fallback)){
+        select.value=fallback;
+      } else if(!includeBlank && state.itemGroups.length){
+        select.value=state.itemGroups[0];
+      } else {
+        select.value='';
+      }
+    }
+
+    function renderGroupSelectors(){
+      ensureItemGroups();
+      const last = getLastGroup();
+      if(newItemGroupSelect){
+        const current = normalizeGroupValue(newItemGroupSelect.value) || last;
+        populateGroupSelect(newItemGroupSelect, { includeBlank:true, preferred:current, fallback:last, blankLabel:'No Group' });
+      }
+      if(taskGroupSelect){
+        const current = normalizeGroupValue(taskGroupSelect.value) || last;
+        populateGroupSelect(taskGroupSelect, { includeBlank:true, preferred:current, fallback:last, blankLabel:'No Group' });
+      }
+      if(modalGroupSelect){
+        const current = normalizeGroupValue(modalGroupSelect.dataset.selected || modalGroupSelect.value || '');
+        populateGroupSelect(modalGroupSelect, { includeBlank:true, preferred:current, fallback:'', blankLabel:'No Group' });
+      }
+    }
+
+    function renderGroupManager(){
+      if(!groupPaletteEl) return;
+      groupPaletteEl.innerHTML='';
+      const last = getLastGroup();
+      ensureItemGroups().forEach(name => {
+        const chip=document.createElement('button');
+        chip.type='button';
+        chip.className='chip-tag group-chip';
+        if(last === name) chip.classList.add('selected');
+        const prefs = getGroupPrefs(name);
+        const color = prefs.color;
+        const collapsed = prefs.collapsed;
+        if(collapsed) chip.classList.add('is-collapsed');
+        chip.dataset.group = name;
+        chip.dataset.color = color || '';
+        chip.dataset.collapsed = collapsed ? 'true' : 'false';
+        chip.draggable = true;
+        chip.title = collapsed ? 'Drag to reorder groups (collapsed)' : 'Drag to reorder groups';
+        chip.textContent='';
+        const colorDot=document.createElement('span');
+        colorDot.className='color-dot';
+        if(color){
+          colorDot.style.background=color;
+          colorDot.style.borderColor='transparent';
+        }
+        colorDot.title = color ? `Change colour (${color}). Right-click or double-click to clear.` : 'Set colour';
+        colorDot.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          openGroupColorPicker(name);
+        });
+        colorDot.addEventListener('contextmenu', (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          if(setGroupColor(name, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorDot.addEventListener('dblclick', (e)=>{
+          e.stopPropagation();
+          if(setGroupColor(name, '')){
+            markDirty();
+            renderGroupManager();
+            renderNotesList();
+          }
+        });
+        colorDot.addEventListener('mousedown', (e)=> e.stopPropagation());
+        const label=document.createElement('span');
+        label.className='chip-label';
+        label.textContent=name;
+        chip.appendChild(colorDot);
+        chip.appendChild(label);
+        const remove=document.createElement('span');
+        remove.className='remove';
+        remove.textContent='×';
+        remove.setAttribute('aria-hidden','true');
+        remove.title='Remove';
+        remove.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          if(!confirm(`Remove group "${name}"? Items will move to Ungrouped.`)) return;
+          if(removeItemGroup(name)){
+            markDirty();
+            renderGroupSelectors();
+            renderGroupManager();
+            refreshTaskViews();
+          }
+        });
+        chip.addEventListener('click', (e)=>{
+          if(e.target === remove) return;
+          setLastGroup(name);
+          markDirty();
+          renderGroupSelectors();
+          renderGroupManager();
+        });
+        chip.addEventListener('dragstart', (e)=>{
+          dragGroupName = name;
+          chip.classList.add('dragging');
+          if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', name);
+          }
+        });
+        chip.addEventListener('dragend', () => {
+          clearGroupDragState();
+        });
+        chip.addEventListener('dragover', (e)=>{
+          if(!dragGroupName || dragGroupName === name) return;
+          e.preventDefault();
+          const rect = chip.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          chip.classList.toggle('drag-over-after', after);
+          chip.classList.toggle('drag-over-before', !after);
+        });
+        chip.addEventListener('dragleave', ()=>{
+          chip.classList.remove('drag-over-before','drag-over-after');
+        });
+        chip.addEventListener('drop', (e)=>{
+          if(!dragGroupName) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+          const rect = chip.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          const changed = reorderItemGroups(from, name, after);
+          clearGroupDragState();
+          if(changed){
+            commitGroupReorder();
+          }
+        });
+        chip.appendChild(remove);
+        groupPaletteEl.appendChild(chip);
+      });
+    }
+
+    function clearGroupDragState(){
+      dragGroupName = null;
+      document.querySelectorAll('.chip-tag.group-chip').forEach(chip => chip.classList.remove('dragging','drag-over-before','drag-over-after'));
+      document.querySelectorAll('.note-group-title').forEach(title => title.classList.remove('dragging','drag-over-before','drag-over-after','task-drop'));
+      if(groupPaletteEl){
+        groupPaletteEl.classList.remove('drag-over-end');
+      }
+    }
+
+    if(groupPaletteEl){
+      groupPaletteEl.addEventListener('dragover', (e)=>{
+        if(!dragGroupName) return;
+        if(e.target !== groupPaletteEl) return;
+        e.preventDefault();
+        groupPaletteEl.classList.add('drag-over-end');
+      });
+      groupPaletteEl.addEventListener('dragleave', (e)=>{
+        if(e.target === groupPaletteEl){
+          groupPaletteEl.classList.remove('drag-over-end');
+        }
+      });
+      groupPaletteEl.addEventListener('drop', (e)=>{
+        if(!dragGroupName) return;
+        if(e.target !== groupPaletteEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const from = dragGroupName || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+        const changed = moveItemGroupToIndex(from, state.itemGroups.length);
+        clearGroupDragState();
+        if(changed){
+          commitGroupReorder();
+        }
+      });
+    }
+
+    if(btnAddGroup){
+      btnAddGroup.addEventListener('click', ()=>{
+        const name = (newGroupInput?.value || '').trim();
+        if(!name) return;
+        const added = addItemGroup(name);
+        const normalized = normalizeGroupValue(name);
+        if(normalized){
+          setLastGroup(normalized);
+        }
+        newGroupInput.value='';
+        if(added || normalized){
+          markDirty();
+        }
+        if(added){
+          refreshTaskViews();
+        } else {
+          renderGroupSelectors();
+          renderGroupManager();
+        }
+      });
+    }
+
+    if(newGroupInput){
+      newGroupInput.addEventListener('keypress', (e)=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          btnAddGroup?.click();
+        }
+      });
+    }
+
+    if(btnQuickAddGroup){
+      btnQuickAddGroup.addEventListener('click', ()=>{
+        const name = prompt('New group name');
+        if(!name) return;
+        const added = addItemGroup(name);
+        const normalized = normalizeGroupValue(name);
+        if(normalized){
+          setLastGroup(normalized);
+        }
+        if(added || normalized){
+          markDirty();
+        }
+        if(added){
+          refreshTaskViews();
+        } else {
+          renderGroupSelectors();
+          renderGroupManager();
+        }
+      });
+    }
+
+    if(taskGroupSelect){
+      taskGroupSelect.addEventListener('change', ()=>{
+        const value = normalizeGroupValue(taskGroupSelect.value);
+        if(value){
+          if(!state.itemGroups.includes(value)){
+            state.itemGroups.push(value);
+          }
+          setLastGroup(value);
+        } else {
+          setLastGroup('');
+        }
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+      });
+    }
+
+    if(newItemGroupSelect){
+      newItemGroupSelect.addEventListener('change', ()=>{
+        const value = normalizeGroupValue(newItemGroupSelect.value);
+        if(value && state.itemGroups.includes(value)){
+          setLastGroup(value);
+        } else {
+          setLastGroup('');
+        }
+        markDirty();
+        renderGroupSelectors();
+        renderGroupManager();
+      });
     }
 
     // ---------- Tags ----------
@@ -1359,9 +2599,13 @@
       let dueDate = parseDateInput(dueVal);
       if(dueDate == null){ dueDate = getTodayTimestamp(); }
       const details = taskDetailsInput ? taskDetailsInput.value.trim() : '';
+      const groupValue = taskGroupSelect ? normalizeGroupValue(taskGroupSelect.value) : getLastGroup();
+      if(groupValue && !state.itemGroups.includes(groupValue)){
+        state.itemGroups.push(groupValue);
+      }
       const tags=getSelectedTags();
       const checklist = Array.from(checkUl.querySelectorAll('input[type="checkbox"]')).map(cb=>({ t: cb.nextElementSibling.textContent, done: cb.checked }));
-      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null, details };
+      const task={ id:Date.now().toString(36)+Math.random().toString(36).slice(2), title, status, priority, tags, checklist, createdAt:Date.now(), dueDate, startTime:null, details, group: groupValue };
       state.tasks.unshift(task);
       // reset form
       document.getElementById('taskTitle').value='';
@@ -1370,23 +2614,207 @@
       document.getElementById('checkItem').value='';
       checkUl.innerHTML='';
       tagPaletteEl.querySelectorAll('.chip-tag.selected').forEach(x=>x.classList.remove('selected'));
-      markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate);
+      if(taskGroupSelect){ taskGroupSelect.value = groupValue || ''; }
+      setLastGroup(groupValue);
+      markDirty();
+      refreshTaskViews();
     });
-    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; markDirty(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); }});
+    document.getElementById('btnClearAll').addEventListener('click', ()=>{ if(confirm('Clear ALL tasks?')){ state.tasks=[]; state.manualOrder=[]; markDirty(); renderNotesList(); refreshTaskShellViews(); }});
+
+    const titleize=(str)=>{
+      return String(str||'')
+        .replace(/[-_]+/g,' ')
+        .replace(/\b([a-z])/g,(m,chr)=>chr.toUpperCase())
+        || '';
+    };
+
+    function getKanbanGroupingValue(){
+      const raw = state?.settings?.kanbanGrouping;
+      return KANBAN_GROUP_OPTIONS.includes(raw) ? raw : 'tab';
+    }
+
+    function buildKanbanGrouping(grouping){
+      const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+      if(grouping==='priority'){
+        const lanes=[
+          {key:'p1', name:'P1'},
+          {key:'p2', name:'P2'},
+          {key:'p3', name:'P3'},
+          {key:'p4', name:'P4'},
+          {key:'p5', name:'P5+'}
+        ];
+        const clampPriority=(value)=>{
+          const num=Number(value);
+          if(!Number.isFinite(num) || num<1) return 5;
+          return Math.min(Math.floor(num),5);
+        };
+        return {
+          lanes,
+          getKey:(task)=>`p${clampPriority(task?.priority)}`,
+          apply:(task,laneKey)=>{
+            const target=clampPriority(laneKey?.slice(1));
+            if(task.priority===target) return false;
+            task.priority=target;
+            return true;
+          }
+        };
+      }
+      if(grouping==='category'){
+        const freq=new Map();
+        tasks.forEach(task=>{
+          const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+          if(firstTag){
+            const key=firstTag.trim();
+            freq.set(key,(freq.get(key)||0)+1);
+          }
+        });
+        const sorted=Array.from(freq.entries()).sort((a,b)=>{
+          if(b[1]!==a[1]) return b[1]-a[1];
+          return a[0].localeCompare(b[0]);
+        });
+        const MAX_TAG_COLUMNS=3;
+        const primaryTags=sorted.slice(0,MAX_TAG_COLUMNS).map(([tag])=>tag);
+        const lanes=[];
+        primaryTags.forEach(tag=>{
+          lanes.push({key:`tag:${tag}`, name:tag});
+        });
+        const hasUntagged=tasks.some(task=>!Array.isArray(task?.tags) || task.tags.length===0);
+        const hasOther=tasks.some(task=>{
+          const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+          if(!firstTag) return false;
+          return !primaryTags.includes(firstTag);
+        });
+        if(hasUntagged && lanes.length<5){
+          lanes.push({key:'tag:__untagged', name:'Untagged'});
+        }
+        if(hasOther && lanes.length<5){
+          lanes.push({key:'tag:__other', name:'Other'});
+        }
+        if(!lanes.some(l=>l.key==='tag:__untagged') && lanes.length<5){
+          const otherIndex=lanes.findIndex(l=>l.key==='tag:__other');
+          const insertIndex = otherIndex>=0 ? otherIndex : lanes.length;
+          lanes.splice(insertIndex,0,{key:'tag:__untagged', name:'Untagged'});
+        }
+        if(!lanes.some(l=>l.key==='tag:__other')){
+          if(lanes.length<5){
+            lanes.push({key:'tag:__other', name:'Other'});
+          } else if(lanes.length){
+            lanes[lanes.length-1]={key:'tag:__other', name:'Other'};
+          } else {
+            lanes.push({key:'tag:__other', name:'Other'});
+          }
+        }
+        if(lanes.length>5){
+          lanes.length=5;
+        }
+        const validKeys=new Set(lanes.map(l=>l.key));
+        const fallbackKey=lanes[lanes.length-1]?.key||'tag:__other';
+        return {
+          lanes,
+          getKey:(task)=>{
+            const firstTag=Array.isArray(task?.tags)? task.tags.find(tag=>tag && tag.trim()):null;
+            if(!firstTag) return validKeys.has('tag:__untagged')?'tag:__untagged':fallbackKey;
+            const laneKey=`tag:${firstTag}`;
+            return validKeys.has(laneKey)? laneKey : (validKeys.has('tag:__other')?'tag:__other':fallbackKey);
+          },
+          apply:(task,laneKey)=>{
+            if(!validKeys.has(laneKey)) return false;
+            if(laneKey==='tag:__untagged'){
+              if(!task.tags || !task.tags.length) return false;
+              task.tags=[];
+              return true;
+            }
+            if(laneKey==='tag:__other'){
+              if(!state.tags.includes('Other')) state.tags.push('Other');
+              if(Array.isArray(task.tags) && task.tags.length===1 && task.tags[0]==='Other') return false;
+              task.tags=['Other'];
+              return true;
+            }
+            const tagName=laneKey.slice(4);
+            if(!state.tags.includes(tagName)) state.tags.push(tagName);
+            if(Array.isArray(task.tags) && task.tags.length===1 && task.tags[0]===tagName) return false;
+            task.tags=[tagName];
+            return true;
+          }
+        };
+      }
+      if(grouping==='date'){
+        const lanes=[
+          {key:'late', name:'Late'},
+          {key:'today', name:'Today'},
+          {key:'week', name:'This Week'},
+          {key:'next', name:'Next Week'},
+          {key:'future', name:'Future'}
+        ];
+        const dayMs=24*60*60*1000;
+        const todayTs=getTodayTimestamp();
+        const startOfToday=todayTs;
+        const startOfTomorrow=startOfToday+dayMs;
+        const endOfWeekExclusive=startOfToday+7*dayMs;
+        const endOfNextWeekExclusive=startOfToday+14*dayMs;
+        const laneKeyForDate=(ts)=>{
+          if(!Number.isFinite(ts)) return 'future';
+          if(ts < startOfToday) return 'late';
+          if(ts < startOfTomorrow) return 'today';
+          if(ts < endOfWeekExclusive) return 'week';
+          if(ts < endOfNextWeekExclusive) return 'next';
+          return 'future';
+        };
+        return {
+          lanes,
+          getKey:(task)=>laneKeyForDate(Number(task?.dueDate)),
+          apply:(task,laneKey)=>{
+            const setters={
+              late:startOfToday-dayMs,
+              today:startOfToday,
+              week:startOfToday+2*dayMs,
+              next:endOfWeekExclusive+dayMs,
+              future:endOfNextWeekExclusive+dayMs
+            };
+            const target=setters[laneKey];
+            if(typeof target!=='number') return false;
+            if(task.dueDate===target) return false;
+            task.dueDate=target;
+            return true;
+          }
+        };
+      }
+      const base=[
+        {key:'backlog', name:'Backlog'},
+        {key:'ready', name:'Ready'},
+        {key:'doing', name:'Doing'},
+        {key:'review', name:'Review'},
+        {key:'done', name:'Done'}
+      ];
+      const seen=new Set(base.map(l=>l.key));
+      tasks.forEach(task=>{
+        const status=String(task?.status||'').trim().toLowerCase();
+        if(status && !seen.has(status) && base.length<5){
+          base.push({key:status, name:titleize(status)||'Custom'});
+          seen.add(status);
+        }
+      });
+      const lanes=base.slice(0,5);
+      const validKeys=new Set(lanes.map(l=>l.key));
+      const fallback=lanes[0]?.key||'backlog';
+      return {
+        lanes,
+        getKey:(task)=>{
+          const status=String(task?.status||'').trim().toLowerCase();
+          return validKeys.has(status)? status : fallback;
+        },
+        apply:(task,laneKey)=>{
+          if(!validKeys.has(laneKey)) return false;
+          return applyTaskStatus(task, laneKey);
+        }
+      };
+    }
 
     function renderTasks(){
       document.getElementById('taskCount').textContent = `${state.tasks.length} task${state.tasks.length===1?'':'s'}`;
       taskListEl.innerHTML='';
       // Sort tasks: incomplete first, then completed; sort by due date ascending then createdAt
-      const tasksSorted = state.tasks.slice().sort((a,b) => {
-        const doneA = a.status === 'done' ? 1 : 0;
-        const doneB = b.status === 'done' ? 1 : 0;
-        if(doneA !== doneB) return doneA - doneB;
-        const aDue = a.dueDate ?? Infinity;
-        const bDue = b.dueDate ?? Infinity;
-        if(aDue !== bDue) return aDue - bDue;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
+      const tasksSorted = state.tasks.slice().sort(compareTaskDisplayOrder);
       tasksSorted.forEach(t=>{
         const card=document.createElement('div'); card.className='task-card';
         card.dataset.taskId = t.id;
@@ -1395,6 +2823,9 @@
         top.appendChild(title);
         const meta=document.createElement('div'); meta.className='subtle';
         let metaText = `${t.status} • P${t.priority}`;
+        if(t.group){
+          metaText += ` • ${t.group}`;
+        }
         if(t.dueDate){
           metaText += ' • Due ' + formatDate(t.dueDate);
           if(t.startTime){
@@ -1420,7 +2851,7 @@
         del.addEventListener('click', ()=>{
           deleteTask(t);
         });
-        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ t.status=e.target.value; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
+        const mv=document.createElement('select'); mv.className='btn'; ['backlog','doing','done'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; if(s===t.status) o.selected=true; mv.appendChild(o); }); mv.addEventListener('change', e=>{ const changed=applyTaskStatus(t, e.target.value); if(changed){ markDirty(); } renderKanban(); renderGrid(); renderTasks(); renderCalendar(); renderNotesList(); if(selectedDate) renderDay(selectedDate); });
         bar.appendChild(mv); bar.appendChild(del); card.appendChild(bar);
         taskListEl.appendChild(card);
       });
@@ -1428,16 +2859,57 @@
 
     // ---------- Kanban (drag & drop) ----------
     function renderKanban(){
-      const root=document.getElementById('kanban'); root.innerHTML='';
-      const lanes=[{k:'backlog', name:'Backlog'},{k:'doing', name:'Doing'},{k:'done', name:'Done'}];
+      const root=document.getElementById('kanban');
+      if(!root) return;
+      root.innerHTML='';
+      const grouping=getKanbanGroupingValue();
+      const groupingSelect=document.getElementById('kanbanGrouping');
+      if(groupingSelect && groupingSelect.value!==grouping){
+        groupingSelect.value=grouping;
+      }
+      const config=buildKanbanGrouping(grouping);
+      const lanes=config.lanes||[];
+      if(!lanes.length){
+        root.innerHTML='<div class="subtle">No lanes available</div>';
+        return;
+      }
+      const laneTaskMap=new Map();
+      lanes.forEach(l=> laneTaskMap.set(l.key, []));
+      const fallbackKey=lanes[0]?.key||null;
+      (state.tasks||[]).forEach(task=>{
+        let laneKey=config.getKey? config.getKey(task):fallbackKey;
+        if(!laneTaskMap.has(laneKey)) laneKey=fallbackKey;
+        if(laneKey && laneTaskMap.has(laneKey)){
+          laneTaskMap.get(laneKey).push(task);
+        }
+      });
       lanes.forEach(l=>{
-        const col=document.createElement('div'); col.className='col'; col.dataset.lane=l.k;
+        const col=document.createElement('div'); col.className='col'; col.dataset.lane=l.key;
         const head=document.createElement('div'); head.className='col-head'; head.textContent = `${l.name}`; col.appendChild(head);
         const body=document.createElement('div'); body.className='col-body';
         body.addEventListener('dragover',(e)=>{ e.preventDefault(); body.classList.add('drag-over'); });
         body.addEventListener('dragleave',()=> body.classList.remove('drag-over'));
-        body.addEventListener('drop',(e)=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(t){ t.status=l.k; markDirty(); renderKanban(); renderGrid(); renderTasks(); renderNotesList(); if(selectedDate) renderDay(selectedDate); } body.classList.remove('drag-over'); });
-        state.tasks.filter(t=>t.status===l.k).forEach(t=>{
+        body.addEventListener('drop',(e)=>{
+          e.preventDefault();
+          body.classList.remove('drag-over');
+          const id=e.dataTransfer.getData('text/plain');
+          const t=state.tasks.find(x=>x.id===id);
+          if(t){
+            const changed=config.apply? config.apply(t,l.key):false;
+            if(changed){
+              markDirty();
+            }
+            renderKanban();
+            renderGrid();
+            renderTasks();
+            renderTagPalette();
+            renderNotesList();
+            renderCalendar();
+            if(selectedDate) renderDay(selectedDate);
+          }
+        });
+        const laneTasks = (laneTaskMap.get(l.key)||[]).slice().sort(compareTaskDisplayOrder);
+        laneTasks.forEach(t=>{
           const c=document.createElement('div');
           c.className='kb-card';
           c.dataset.taskId = t.id;
@@ -1448,10 +2920,14 @@
           applyTruncatedTitle(titleEl, t.title);
           const metaEl=document.createElement('div');
           metaEl.className='subtle';
-          let metaText = `P${t.priority}`;
-          if(t.tags?.length) metaText += ' • ' + t.tags.join(', ');
-          if(t.dueDate) metaText += ' • Due ' + formatDate(t.dueDate);
-          metaEl.textContent = metaText;
+          const parts=[];
+          const priorityLabel = (t.priority!=null && t.priority!=='') ? `P${t.priority}` : 'P?';
+          parts.push(priorityLabel);
+          if(grouping!=='tab' && t.status){ parts.push(titleize(t.status)||t.status); }
+          if(t.tags?.length) parts.push(t.tags.join(', '));
+          if(t.group) parts.push(t.group);
+          if(t.dueDate) parts.push('Due '+formatDate(t.dueDate));
+          metaEl.textContent = parts.filter(Boolean).join(' • ');
           c.appendChild(titleEl);
           c.appendChild(metaEl);
           if(t.details){ const detailEl=document.createElement('div'); detailEl.className='kanban-detail'; detailEl.textContent=t.details; c.appendChild(detailEl); }
@@ -1472,19 +2948,24 @@
     function renderGrid(){
       const tbody=document.getElementById('gridBody'); tbody.innerHTML='';
       const items = state.tasks.slice().sort((a,b)=>{
+        const doneA = String(a.status||'').toLowerCase()==='done';
+        const doneB = String(b.status||'').toLowerCase()==='done';
+        if(doneA!==doneB) return doneA?1:-1;
         let av=a[sortKey], bv=b[sortKey];
         if(sortKey==='tags'){ av=(a.tags||[]).join(','); bv=(b.tags||[]).join(','); }
         if(sortKey==='createdAt'){ av=a.createdAt||0; bv=b.createdAt||0; }
         if(sortKey==='dueDate'){ av=a.dueDate||0; bv=b.dueDate||0; }
         if(sortKey==='priority'){ av=Number(av)||0; bv=Number(bv)||0; }
         av = typeof av==='string'? av.toLowerCase() : av; bv = typeof bv==='string'? bv.toLowerCase() : bv;
-        return sortDir==='asc' ? (av>bv?1:av<bv?-1:0) : (av<bv?1:av>bv?-1:0);
+        const cmp = av>bv?1:av<bv?-1:0;
+        return sortDir==='asc' ? cmp : -cmp;
       });
       items.forEach((t,rowIdx)=>{
         const tr=document.createElement('tr'); tr.dataset.id=t.id; tr.dataset.taskId = t.id;
         const cols=[
           {k:'title', v:t.title},
           {k:'status', v:t.status},
+          {k:'group', v:t.group || ''},
           {k:'priority', v:'P'+(t.priority||'')},
           {k:'dueDate', v: t.dueDate ? formatDate(t.dueDate) : ''},
           {k:'tags', v:(t.tags||[]).join(', ')},
@@ -1515,7 +2996,16 @@
       } else if(field === 'tags'){
         task.tags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
       } else if(field === 'status'){
-        task.status = raw || 'backlog';
+        applyTaskStatus(task, raw || 'backlog');
+      } else if(field === 'group'){
+        const normalized = normalizeGroupValue(raw);
+        const changed = setTaskGroup(task, normalized);
+        if(changed){
+          setLastGroup(normalized);
+          if(!task.fromNotes){
+            moveManualTaskToGroupEnd(task.id, normalized);
+          }
+        }
       } else if(field === 'title'){
         task.title = raw || '(untitled)';
       } else if(field === 'dueDate'){
@@ -1529,6 +3019,8 @@
         task.details = raw;
       }
       markDirty();
+      renderGroupSelectors();
+      renderGroupManager();
       renderKanban();
       renderTasks();
       renderCalendar();
@@ -1552,6 +3044,7 @@
 
     // ---------- Modal editing for note items ----------
     const taskModal = document.getElementById('taskModal');
+    const modalTitleInput = document.getElementById('modalTitleInput');
     const modalStatusSelect = document.getElementById('modalStatusSelect');
     const modalPrioritySelect = document.getElementById('modalPrioritySelect');
     const modalDueDate = document.getElementById('modalDueDate');
@@ -1623,10 +3116,16 @@
       if(!task) return;
       currentModalTask = task;
       if(!Array.isArray(task.tags)) task.tags = [];
-      const statusVal = task.status || 'backlog';
+      if(modalTitleInput){
+        modalTitleInput.value = task.title || '';
+        modalTitleInput.focus();
+        modalTitleInput.select();
+      }
+      const statusVal = normalizeStatusValue(task.status);
+      const fallbackStatus = statusVal === 'done' ? ensureLastActiveStatus(task) : statusVal;
       modalStatusSelect.disabled = false;
       modalStatusSelect.value = statusVal;
-      modalStatusSelect.dataset.prevStatus = statusVal === 'done' ? 'backlog' : statusVal;
+      modalStatusSelect.dataset.prevStatus = fallbackStatus;
       if(modalCompleteToggle){
         modalCompleteToggle.checked = statusVal === 'done';
         modalStatusSelect.disabled = modalCompleteToggle.checked;
@@ -1658,6 +3157,11 @@
       if(modalDueDate){
         modalDueDate.value = task.dueDate ? formatDate(task.dueDate) : '';
       }
+      if(modalGroupSelect){
+        modalGroupSelect.dataset.selected = normalizeGroupValue(task.group);
+        renderGroupSelectors();
+        modalGroupSelect.value = normalizeGroupValue(task.group) || '';
+      }
       if(modalDetails){
         modalDetails.value = task.details || '';
       }
@@ -1687,28 +3191,32 @@
     if(modalCompleteToggle){
       modalCompleteToggle.addEventListener('change', () => {
         if(modalCompleteToggle.checked){
-          if(modalStatusSelect.value !== 'done'){
-            modalStatusSelect.dataset.prevStatus = modalStatusSelect.value || 'backlog';
-          }
+          const current = normalizeStatusValue(modalStatusSelect.value || (currentModalTask ? currentModalTask.status : 'backlog'));
+          const fallback = current === 'done' && currentModalTask ? ensureLastActiveStatus(currentModalTask) : current;
+          modalStatusSelect.dataset.prevStatus = fallback;
           modalStatusSelect.value = 'done';
           modalStatusSelect.disabled = true;
         } else {
           modalStatusSelect.disabled = false;
-          const prev = modalStatusSelect.dataset.prevStatus || 'backlog';
+          const prev = normalizeStatusValue(modalStatusSelect.dataset.prevStatus || (currentModalTask ? ensureLastActiveStatus(currentModalTask) : 'backlog'));
           modalStatusSelect.value = prev;
         }
       });
     }
     modalStatusSelect.addEventListener('change', () => {
-      if(modalStatusSelect.value === 'done'){
+      const normalized = normalizeStatusValue(modalStatusSelect.value);
+      if(normalized === 'done'){
+        const fallback = currentModalTask ? ensureLastActiveStatus(currentModalTask) : 'backlog';
+        modalStatusSelect.dataset.prevStatus = fallback;
         if(modalCompleteToggle){
           modalCompleteToggle.checked = true;
           modalStatusSelect.disabled = true;
         }
       } else {
-        modalStatusSelect.dataset.prevStatus = modalStatusSelect.value;
+        modalStatusSelect.dataset.prevStatus = normalized;
         if(modalCompleteToggle){
           modalCompleteToggle.checked = false;
+          modalStatusSelect.disabled = false;
         }
       }
     });
@@ -1718,13 +3226,23 @@
       modalChecklistData = [];
       if(modalChecklist){ modalChecklist.innerHTML = ''; }
       if(modalCheckInput){ modalCheckInput.value = ''; }
+      if(modalTitleInput){ modalTitleInput.value = ''; }
+      if(modalGroupSelect){ modalGroupSelect.dataset.selected = ''; }
     }
     modalSaveBtn.addEventListener('click', () => {
       if(!currentModalTask){ closeTaskModal(); return; }
+      if(modalTitleInput){
+        const title = modalTitleInput.value.trim();
+        currentModalTask.title = title || '(untitled)';
+      }
       const isComplete = modalCompleteToggle && modalCompleteToggle.checked;
-      const statusChoice = modalStatusSelect.value || 'backlog';
-      currentModalTask.status = isComplete ? 'done' : statusChoice;
-      modalStatusSelect.dataset.prevStatus = currentModalTask.status === 'done' ? 'backlog' : currentModalTask.status;
+      const statusChoice = normalizeStatusValue(modalStatusSelect.value);
+      if(isComplete){
+        setTaskCompletion(currentModalTask, true);
+      } else {
+        applyTaskStatus(currentModalTask, statusChoice);
+      }
+      modalStatusSelect.dataset.prevStatus = ensureLastActiveStatus(currentModalTask);
       currentModalTask.priority = Number(modalPrioritySelect.value) || 2;
       const selectedTags = Array.from(modalTagContainer.querySelectorAll('.chip-tag.selected')).map(el => el.dataset.tag);
       currentModalTask.tags = selectedTags;
@@ -1740,6 +3258,16 @@
           .filter(item => item.t);
         currentModalTask.checklist = cleaned;
       }
+      if(modalGroupSelect){
+        const selectedGroup = normalizeGroupValue(modalGroupSelect.value || '');
+        const changedGroup = setTaskGroup(currentModalTask, selectedGroup);
+        if(changedGroup){
+          setLastGroup(selectedGroup);
+          if(!currentModalTask.fromNotes){
+            moveManualTaskToGroupEnd(currentModalTask.id, selectedGroup);
+          }
+        }
+      }
       const newName = (modalNewTagInput.value || '').trim();
       if(newName){
         if(!state.tags.includes(newName)){
@@ -1752,9 +3280,8 @@
       modalNewTagInput.value = '';
       markDirty();
       renderTagPalette();
-      renderTasks(); renderKanban(); renderGrid(); renderCalendar();
       renderNotesList();
-      if(selectedDate) renderDay(selectedDate);
+      refreshTaskShellViews();
       closeTaskModal();
     });
     modalCancelBtn.addEventListener('click', () => {
@@ -2073,8 +3600,7 @@
       function refreshAfterStateChange(){
         markDirty();
         renderNotesList();
-        renderTasks(); renderKanban(); renderGrid(); renderCalendar();
-        renderDay(dateStr);
+        refreshTaskShellViews();
       }
       function beginInlineEdit(taskId, host){
         if(!host || host.dataset.inlineEditing === '1') return;
@@ -2595,7 +4121,7 @@
     document.addEventListener('readystatechange', ()=>{ if(document.readyState==='complete'){ applySharePointCanvasOffsets(); setTimeout(applySharePointCanvasOffsets, 150); setTimeout(applySharePointCanvasOffsets, 400); } });
 
     // ---------- Init ----------
-    function renderAll(){ syncNotesToTasks(); renderNotes(); renderTagPalette(); renderTasks(); renderKanban(); renderGrid(); renderCalendar(); if(selectedDate) renderDay(selectedDate); }
+    function renderAll(){ syncNotesToTasks(); renderNotes(); renderTagPalette(); refreshTaskShellViews(); }
     load(); initTheme(); buildSwatches(); renderAll(); setSaved(true); showView('notes');
   })();
   </script>
